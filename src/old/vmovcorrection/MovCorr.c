@@ -256,9 +256,7 @@ VMotionCorrection3d(VAttrList list, VLong i0, VLong step, VLong maxiter) {
     */
     fprintf(stderr, "# estimating motion parameters...\n");
     float progress=0;
-#pragma omp parallel for
     for(i = 0; i < n; i++) {
-	
 	fprintf(stderr, " Progress: %3.2f %\r", ((float)(++progress * 100)/ (float)n));
         /* set parameter of current time step */
         params.i2 = i;
@@ -273,11 +271,11 @@ VMotionCorrection3d(VAttrList list, VLong i0, VLong step, VLong maxiter) {
         for(iter = 0; iter < maxiter; iter++) {
             status = gsl_multimin_fminimizer_iterate(s);
             if(status)
-                break;
+		break; 
             size = gsl_multimin_fminimizer_size(s);
             status = gsl_multimin_test_size(size, 1e-6);
-            if(status == GSL_SUCCESS)
-                break;
+	    if(status == GSL_SUCCESS)
+                 break; 
             if(verbose) {
                 fprintf(stderr, " %5d:  %8.6f  %8.6f,  %8.5f  %8.5f  %8.5f,  %8.5f  %8.5f  %8.5f\n", iter, f0, s->fval,
                         gsl_vector_get(s->x, 0), gsl_vector_get(s->x, 1), gsl_vector_get(s->x, 2),
