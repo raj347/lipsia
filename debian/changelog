@@ -1,3 +1,10 @@
+lipsia (2.2.0-0) stable; urgency=low
+
+  * new program vcompcor
+  * improvement of vpreprocess
+
+ -- Lipsia Group (The official Lipsia developer group) <lipsia@cbs.mpg.de> Mon, 28 Okt 2011 15:00:00 +0100
+
 lipsia (2.1.3svn255-0) stable; urgency=low
 
   * fixed bug with wrong left/right orientation of the mni template
