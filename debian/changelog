@@ -1,4 +1,4 @@
-lipsia (2.2.0-0) stable; urgency=low
+lipsia (2.2.0gc658adc-0) stable; urgency=low
 
   * new program vcompcor
   * improvement of vpreprocess
