@@ -287,34 +287,6 @@ int main(int argc, char *argv[] )
 
 	std::list<isis::data::Image> inList = isis::data::IOFactory::load( in_filename, "", "" );
 
-	BOOST_FOREACH( std::list<isis::data::Image>::reference ref, inList ) {
-		if ( tmpList.front().hasProperty( "Vista/extent" ) ) {
-			ref.setPropertyAs<std::string>( "Vista/extent", tmpList.front().getPropertyAs<std::string>( "Vista/extent" ) );
-		}
-		if ( tmpList.front().hasProperty( "Vista/ca" ) && tmpList.front().hasProperty( "Vista/cp" ) ) {
-			std::vector< std::string > caTuple;
-			std::vector< std::string > cpTuple;
-			std::string ca = tmpList.front().getPropertyAs<std::string>( "Vista/ca" );
-			std::string cp = tmpList.front().getPropertyAs<std::string>( "Vista/cp" );
-			isis::util::fvector4 oldVoxelSize = tmpList.front().getPropertyAs<isis::util::fvector4>( "voxelSize" );
-			boost::algorithm::split( caTuple, ca, boost::algorithm::is_any_of( " " ) );
-			boost::algorithm::split( cpTuple, cp, boost::algorithm::is_any_of( " " ) );
-
-			for ( size_t dim = 0; dim < 3; dim++ ) {
-				float caFloat = boost::lexical_cast<float>( caTuple[dim] );
-				float cpFloat = boost::lexical_cast<float>( cpTuple[dim] );
-				float catmp = caFloat * ( oldVoxelSize[dim] / outputSpacing[dim] );
-				float cptmp = cpFloat * ( oldVoxelSize[dim] / outputSpacing[dim] );
-				caTuple[dim] = std::string( boost::lexical_cast<std::string>( catmp ) );
-				cpTuple[dim] = std::string( boost::lexical_cast<std::string>( cptmp ) );
-			}
-
-			std::string newCa = caTuple[0] + std::string( " " ) + caTuple[1] + std::string( " " ) + caTuple[2];
-			std::string newCp = cpTuple[0] + std::string( " " ) + cpTuple[1] + std::string( " " ) + cpTuple[2];
-			ref.setPropertyAs<std::string>( "Vista/ca", newCa );
-			ref.setPropertyAs<std::string>( "Vista/cp", newCp );
-		}
-	}
 
 	if ( !fmri ) {
 		LOG_IF( inList.empty(), isis::DataLog, isis::error ) << "Input image is empty!";
@@ -458,6 +430,34 @@ int main(int argc, char *argv[] )
 
 			warper->Update();
 			std::list<isis::data::Image> imgList = movingAdapter->makeIsisImageObject<OutputImageType>( warper->GetOutput() );
+            BOOST_FOREACH( std::list<isis::data::Image>::reference ref, imgList ) {
+                if ( tmpList.front().hasProperty( "Vista/extent" ) ) {
+                    ref.setPropertyAs<std::string>( "Vista/extent", tmpList.front().getPropertyAs<std::string>( "Vista/extent" ) );
+                }
+                if ( tmpList.front().hasProperty( "Vista/ca" ) && tmpList.front().hasProperty( "Vista/cp" ) ) {
+                    std::vector< std::string > caTuple;
+                    std::vector< std::string > cpTuple;
+                    std::string ca = tmpList.front().getPropertyAs<std::string>( "Vista/ca" );
+                    std::string cp = tmpList.front().getPropertyAs<std::string>( "Vista/cp" );
+                    isis::util::fvector4 oldVoxelSize = tmpList.front().getPropertyAs<isis::util::fvector4>( "voxelSize" );
+                    boost::algorithm::split( caTuple, ca, boost::algorithm::is_any_of( " " ) );
+                    boost::algorithm::split( cpTuple, cp, boost::algorithm::is_any_of( " " ) );
+
+                    for ( size_t dim = 0; dim < 3; dim++ ) {
+                        float caFloat = boost::lexical_cast<float>( caTuple[dim] );
+                        float cpFloat = boost::lexical_cast<float>( cpTuple[dim] );
+                        float catmp = caFloat * ( oldVoxelSize[dim] / outputSpacing[dim] );
+                        float cptmp = cpFloat * ( oldVoxelSize[dim] / outputSpacing[dim] );
+                        caTuple[dim] = std::string( boost::lexical_cast<std::string>( catmp ) );
+                        cpTuple[dim] = std::string( boost::lexical_cast<std::string>( cptmp ) );
+                    }
+
+                    std::string newCa = caTuple[0] + std::string( " " ) + caTuple[1] + std::string( " " ) + caTuple[2];
+                    std::string newCp = cpTuple[0] + std::string( " " ) + cpTuple[1] + std::string( " " ) + cpTuple[2];
+                    ref.setPropertyAs<std::string>( "Vista/ca", newCa );
+                    ref.setPropertyAs<std::string>( "Vista/cp", newCp );
+                }
+            }
 			isis::data::IOFactory::write( imgList, out_filename, "", "" );
 		}
 	}
@@ -567,6 +567,36 @@ int main(int argc, char *argv[] )
 		tileImageFilter->GetOutput()->SetDirection( direction4D );
 		tileImageFilter->Update();
 		std::list<isis::data::Image> imgList = movingAdapter->makeIsisImageObject<FMRIOutputType>( tileImageFilter->GetOutput() );
+
+        BOOST_FOREACH( std::list<isis::data::Image>::reference ref, imgList ) {
+            if ( tmpList.front().hasProperty( "Vista/extent" ) ) {
+                ref.setPropertyAs<std::string>( "Vista/extent", tmpList.front().getPropertyAs<std::string>( "Vista/extent" ) );
+            }
+            if ( tmpList.front().hasProperty( "Vista/ca" ) && tmpList.front().hasProperty( "Vista/cp" ) ) {
+                std::vector< std::string > caTuple;
+                std::vector< std::string > cpTuple;
+                std::string ca = tmpList.front().getPropertyAs<std::string>( "Vista/ca" );
+                std::string cp = tmpList.front().getPropertyAs<std::string>( "Vista/cp" );
+                isis::util::fvector4 oldVoxelSize = tmpList.front().getPropertyAs<isis::util::fvector4>( "voxelSize" );
+                boost::algorithm::split( caTuple, ca, boost::algorithm::is_any_of( " " ) );
+                boost::algorithm::split( cpTuple, cp, boost::algorithm::is_any_of( " " ) );
+
+                for ( size_t dim = 0; dim < 3; dim++ ) {
+                    float caFloat = boost::lexical_cast<float>( caTuple[dim] );
+                    float cpFloat = boost::lexical_cast<float>( cpTuple[dim] );
+                    float catmp = caFloat * ( oldVoxelSize[dim] / outputSpacing[dim] );
+                    float cptmp = cpFloat * ( oldVoxelSize[dim] / outputSpacing[dim] );
+                    caTuple[dim] = std::string( boost::lexical_cast<std::string>( catmp ) );
+                    cpTuple[dim] = std::string( boost::lexical_cast<std::string>( cptmp ) );
+                }
+
+                std::string newCa = caTuple[0] + std::string( " " ) + caTuple[1] + std::string( " " ) + caTuple[2];
+                std::string newCp = cpTuple[0] + std::string( " " ) + cpTuple[1] + std::string( " " ) + cpTuple[2];
+                ref.setPropertyAs<std::string>( "Vista/ca", newCa );
+                ref.setPropertyAs<std::string>( "Vista/cp", newCp );
+            }
+        }
+        
 		isis::data::IOFactory::write( imgList, out_filename, "" , "" );
 	}
 
