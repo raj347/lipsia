@@ -471,7 +471,7 @@ int main(int argc, char *argv[] )
 			fmriOutputDirection = templateImage->GetDirection();
 		}
 
-		for ( unsigned int i = 0; i < 4; i++ ) {
+		for ( unsigned int i = 0; i < 3; i++ ) {
 			if ( resolution.number ) {
 				fmriOutputSpacing[i] = outputSpacing[i];
 				fmriOutputSize[i] = outputSize[i];
@@ -526,9 +526,8 @@ int main(int argc, char *argv[] )
 		const unsigned int numberOfTimeSteps = fmriImage->GetLargestPossibleRegion().GetSize()[3];
 		OutputImageType::Pointer tileImage;
 		std::cout << std::endl;
-		//      isis::data::ImageList inList = isis::data::IOFactory::load( in_filename, "" );
 		inputImage = movingAdapter->makeItkImageObject<InputImageType>( inList.front() );
-		FMRIOutputType::DirectionType direction4D;
+		FMRIOutputType::DirectionType direction4D; //TODO initialize me
 
 		for ( size_t i = 0; i < 3; i++ ) {
 			for ( size_t j = 0; j < 3; j++ ) {
