@@ -11,7 +11,7 @@ DEB_CMAKE_EXTRA_FLAGS = \
     -DCMAKE_INSTALL_RPATH="/usr/lib/lipsia" \
     -DCMAKE_SKIP_RPATH:BOOL=OFF \
     -DQT3_SUPPORT:BOOL=ON \
-    -DITK_DIR="/usr/lib/cmake/ITK-4.0" 
+    -DITK_DIR="/usr/lib/InsightToolkit" 
 
 DEB_SHLIBDEPS_INCLUDE_lipsia = debian/lipsia/usr/lib/lipsia
 
