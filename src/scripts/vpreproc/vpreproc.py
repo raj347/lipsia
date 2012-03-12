@@ -18,8 +18,6 @@ class PreProc(QtGui.QMainWindow):
         self.app = app
         self.ui = Ui_Fenster()
         self.ui.setupUi(self)
-
-        self.ui.setupUi(self)
         self.homePath = QtCore.QDir.currentPath()
         self.myFileList = []
         self.currentImageIndex = 0
@@ -250,7 +248,7 @@ class PreProc(QtGui.QMainWindow):
 #help fehlt
     def show_help(self):
         if( self.ui.comboBox_help.currentText() != "" ):
-            self.ui.textBrowser_help.setUrl(QtCore.QUrl(self.helpDict[str(self.ui.comboBox_help.currentText())]))
+            self.ui.web_help.setUrl(QtCore.QUrl(self.helpDict[str(self.ui.comboBox_help.currentText())]))
 
 # Template auswahlcheck - wenn die nicht vorhanden sind (lipsia-paket), dann fehler schmeissen und wieder ausschalten
     def change_atlas_reg(self):
