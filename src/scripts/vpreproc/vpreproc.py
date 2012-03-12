@@ -45,7 +45,7 @@ class PreProc(QtGui.QMainWindow):
         self.helpDict = {"Lipsia help": "/usr/share/doc/lipsia/html/index.html" }
         for help, path in self.helpDict.iteritems():
             if(os.path.isfile(path)):
-                self.ui.help_Box.addItem(help)
+                self.ui.comboBox_help.addItem(help)
         self.show_help()
         self.interpolators = ["Linear", "BSpline", "NearestNeighbor"]
         for inter in self.interpolators:
