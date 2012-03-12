@@ -32,7 +32,7 @@
     <enum>Qt::LeftToRight</enum>
    </property>
    <property name="currentIndex">
-    <number>1</number>
+    <number>2</number>
    </property>
    <widget class="QWidget" name="tab_general">
     <attribute name="title">
@@ -1187,14 +1187,19 @@ p, li { white-space: pre-wrap; }
       </rect>
      </property>
     </widget>
-    <widget class="QTextBrowser" name="textBrowser_help">
+    <widget class="QWebView" name="web_help">
      <property name="geometry">
       <rect>
        <x>10</x>
        <y>40</y>
        <width>621</width>
-       <height>471</height>
+       <height>501</height>
       </rect>
+     </property>
+     <property name="url">
+      <url>
+       <string>about:blank</string>
+      </url>
      </property>
     </widget>
    </widget>
@@ -1268,6 +1273,13 @@ p, li { white-space: pre-wrap; }
    </property>
   </widget>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>QWebView</class>
+   <extends>QWidget</extends>
+   <header>QtWebKit/QWebView</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections>
   <connection>
