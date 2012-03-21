@@ -271,8 +271,8 @@ VRegression(ListInfo *linfo, int nlists, VShort minval, VImage design, VFloat si
     ** create temporary images for smoothness estimation
     */
     /* smoothness estim only for 3D images, i.e. CA/CP known */
-    if(xinfo->ca[0] == 'N')
-        smooth = FALSE;
+/*    if(xinfo->ca[0] == 'N')
+        smooth = FALSE;*/
     if(smooth) {
         i0 = 20;
         i1 = i0 + 30;
