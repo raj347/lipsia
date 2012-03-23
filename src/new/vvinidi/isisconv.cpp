@@ -29,9 +29,9 @@ int main( int argc, char **argv )
 	app.parameters["tr"].setDescription( "Repetition time in s" );
 	app.init( argc, argv ); // will exit if there is a problem
 
-	if( app.parameters["tr"]->as<double>() > 0 ) {
+	if( app.parameters["tr"].as<double>() > 0 ) {
 		BOOST_FOREACH( std::list<data::Image>::reference ref, app.images ) {
-			ref.setPropertyAs<u_int16_t>( "repetitionTime", app.parameters["tr"]->as<double>() * 1000 );
+			ref.setPropertyAs<u_int16_t>( "repetitionTime", app.parameters["tr"].as<double>() * 1000 );
 		}
 	}
 
@@ -58,7 +58,7 @@ int main( int argc, char **argv )
 			boost::filesystem::path newPath( out.branch_path() /  countString.str() );
 			std::list<data::Image> tmpList;
 			tmpList.push_back( map.second );
-			data::IOFactory::write( tmpList, newPath.string(), app.parameters["wf"], app.parameters["wdialect"] );
+			data::IOFactory::write( tmpList, newPath.string(), app.parameters["wf"].toString().c_str(), app.parameters["wdialect"].toString().c_str() );
 		}
 	} else {
 		app.autowrite( app.images );
