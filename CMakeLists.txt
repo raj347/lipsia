@@ -28,7 +28,7 @@ ENDIF(LIPSIA_INCLUDE_ROOT)
 IF(APPLE)
 	set(LIB_INSTALL_PATH lib)
 else(APPLE)
-	set(LIB_INSTALL_PATH lib)
+	set(LIB_INSTALL_PATH lib/lipsia)
 endif(APPLE)
 
 # the name of the Lipsia library
