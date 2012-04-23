@@ -12,8 +12,8 @@ XS-DM-Upload-Allowed: yes
 Package: lipsia
 Section: science
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, isisio0-vista (= 0.4.5gb918f62-0), isisio0-dicom (= 0.4.5gb918f62-0), isisio0-nifti-sa (= 0.4.5gb918f62-0), isisio0-gz-proxy (= 0.4.5gb918f62-0), dcmtk, libisiscore0 (= 0.4.5gb918f62-0), python-qt4
-Recommends: via-utils, isisio0-tar-proxy (= 0.4.5gb918f62-0), isis-utils (= 0.4.5gb918f62-0), isisio0-png (= 0.4.5gb918f62-0), lipsia-doc, vast (>= 0.2.6)
+Depends: ${shlibs:Depends}, ${misc:Depends}, python-qt4
+Recommends: via-utils, lipsia-doc, vast (>= 0.2.6), libisis-ioplugins-common, libisis-ioplugins-dicom
 Description: analysis suite for MRI and fMRI data
  Leipzig Image Processing and Statistical Inference Algorithms (LIPSIA)
  .
