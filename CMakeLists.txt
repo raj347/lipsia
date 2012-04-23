@@ -28,7 +28,7 @@ ENDIF(LIPSIA_INCLUDE_ROOT)
 IF(APPLE)
 	set(LIB_INSTALL_PATH lib)
 else(APPLE)
-	set(LIB_INSTALL_PATH lib/lipsia)
+	set(LIB_INSTALL_PATH lib)
 endif(APPLE)
 
 # the name of the Lipsia library
@@ -37,7 +37,7 @@ SET(LIPSIA_LIBRARY "lipsia")
 # set the lipsia version
 SET(LIPSIA_VERSION_MAJOR "2")
 SET(LIPSIA_VERSION_MINOR "2")
-SET(LIPSIA_VERSION_PATCH "1")
+SET(LIPSIA_VERSION_PATCH "2")
 
 ADD_DEFINITIONS(-D_LIPSIA_VERSION_MAJOR=${LIPSIA_VERSION_MAJOR})
 ADD_DEFINITIONS(-D_LIPSIA_VERSION_MINOR=${${CMAKE_PROJECT_NAME}_VERSION_MINOR})
@@ -158,7 +158,7 @@ INSTALL(DIRECTORY doc/html
 #installing the scripts
 install(PROGRAMS src/scripts/vcreatemask DESTINATION bin)
 #install(PROGRAMS src/scripts/vnormdata DESTINATION bin)
-install(PROGRAMS src/scripts/vpreproc_gui DESTINATION bin)
+#install(PROGRAMS src/scripts/vpreproc_gui DESTINATION bin)
 
 #############################################################
 # CPack config
