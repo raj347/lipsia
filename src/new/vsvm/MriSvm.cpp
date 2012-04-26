@@ -63,9 +63,6 @@ void MriSvm::printConfiguration() {
 }
 
 void MriSvm::scale() {
-  //cout << "Scaling features" << endl;
-
-  // FIXME efficiency
   for(long int feature_index(0); feature_index < number_of_features_; feature_index++) {
     // Find range of values of this feature
     double max = DBL_MIN;
@@ -91,8 +88,6 @@ void MriSvm::scale() {
 }
 
 double MriSvm::cross_validate() {
-  //cout << "SVM cross validation" << endl;
-
   /* Fill response vector with classes */ 
   double y[number_of_samples_]; // Classes
   for (long int sample_index(0); sample_index < number_of_samples_; sample_index++) {
@@ -116,21 +111,20 @@ double MriSvm::cross_validate() {
   double target[number_of_samples_]; 
 
   svm_set_print_string_function(print_nothing);
+  /*
   const char *error_msg = svm_check_parameter(&problem,&parameters_);
   if(error_msg)
   {
     cerr << "ERROR: " << error_msg << endl;
     exit(1);
   }
-
+  */
   svm_cross_validation(&problem,&parameters_,DEFAULT_MRISVM_CROSS_VALIDATION,target);
 
   int total_correct = 0;
   for(int i=0;i<number_of_samples_;i++) {
     if(target[i] == problem.y[i])
         ++total_correct;
-
-    //cout << target[i] << " " << problem.y[i] << endl;
   }
 
   // Free memory again

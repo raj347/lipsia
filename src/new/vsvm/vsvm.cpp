@@ -6,6 +6,7 @@
 
 // C++ header
 #include <iostream>
+#include <fstream>
 #include <iomanip>
 #include <vector>
 #include <string>
@@ -41,6 +42,7 @@ using std::setw;
 using std::vector;
 using std::map;
 using std::string;
+using std::ofstream;
 using boost::assign::map_list_of;
 
 extern "C" void getLipsiaVersion(char*,size_t);
@@ -280,9 +282,10 @@ int main (int argc,char *argv[]) {
     SearchLight sl(number_of_bands,number_of_rows,number_of_columns,number_of_images,sample_features,classes,3);
     /* Measure time */
     struct timespec start,end;
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID,&start);
+    clock_gettime(CLOCK_MONOTONIC,&start);
+    sl.scale();
     sample_validity_array_type validities = sl.calculate();
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID,&end);
+    clock_gettime(CLOCK_MONOTONIC,&end);
     long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
     cout << "Execution time: " << execution_time / 1e9 << "s" << endl;
     VImage dest = VCreateImage(number_of_bands,number_of_rows,number_of_columns,VFloatRepn);
@@ -302,6 +305,7 @@ int main (int argc,char *argv[]) {
     VAppendAttr(out_list,"image",NULL,VImageRepn,dest);
     VHistory(VNumber(program_options),program_options,argv[0],&attribute_list,&out_list);
     VWriteFile(out_file, out_list);
+
   }
 }
 

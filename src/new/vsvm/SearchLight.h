@@ -14,8 +14,10 @@
 
 #include "boost/multi_array.hpp"
 
-#define DEFAULT_SEARCHLIGHT_SCALE_LOWER -1
+#define DEFAULT_SEARCHLIGHT_SCALE_LOWER 0
 #define DEFAULT_SEARCHLIGHT_SCALE_UPPER 1
+
+#include "MriSvm.h"
 
 #define _DENSE_REP
 #include "libsvm-dense/svm.h"
@@ -39,9 +41,14 @@ public:
   virtual ~SearchLight();
   void printConfiguration();
   sample_validity_array_type calculate();
+  void scale();
 
 private:
   vector<coords_3d> radius_pixels();
+  bool              is_feature_zero(int,int,int);
+  bool              are_coordinates_valid(int,int,int);
+  double            cross_validate(int,int,int,vector<coords_3d>&);
+  struct svm_parameter getDefaultParameters();
 
   int      number_of_bands_;
   int      number_of_rows_;
