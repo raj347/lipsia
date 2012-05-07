@@ -14,13 +14,15 @@
 
 #include "boost/multi_array.hpp"
 
-#define DEFAULT_MRISVM_SCALE_LOWER -1
-#define DEFAULT_MRISVM_SCALE_UPPER 1
-#define DEFAULT_MRISVM_CROSS_VALIDATION 11
-#define DEFAULT_MRISVM_KERNEL_TYPE LINEAR
-#define DEFAULT_MRISVM_SVM_TYPE C_SVC
-#define DEFAULT_MRISVM_C  1.0
-#define DEFAULT_MRISVM_GAMMA  1.0
+#define DEFAULT_MRISVM_SCALE_LOWER                -1
+#define DEFAULT_MRISVM_SCALE_UPPER                1
+#define DEFAULT_MRISVM_CROSS_VALIDATION           5
+#define DEFAULT_MRISVM_KERNEL_TYPE                LINEAR
+#define DEFAULT_MRISVM_SVM_TYPE                   C_SVC
+#define DEFAULT_MRISVM_C                          1.0
+#define DEFAULT_MRISVM_GAMMA                      1.0
+#define DEFAULT_MRISVM_CROSS_VALIDATION_COUNT     10
+#define DEFAULT_MRISVM_CROSS_VALIDATION_LEAVEOUT  2
 
 #define _DENSE_REP
 #include "libsvm-dense/svm.h"
@@ -42,7 +44,7 @@ public:
   virtual ~MriSvm();
   void printConfiguration();
   void scale();
-  double cross_validate();
+  double cross_validate(int count = DEFAULT_MRISVM_CROSS_VALIDATION_COUNT, int leaveout = DEFAULT_MRISVM_CROSS_VALIDATION_LEAVEOUT);
   void export_table(std::string file_name);
   struct svm_parameter getDefaultParameters();
 
@@ -53,6 +55,8 @@ private:
   sample_features_array_type sample_features_;
   vector <int>  classes_;
   struct svm_parameter parameters_;
+  
+  void shuffle(int *array);
 
 };
 

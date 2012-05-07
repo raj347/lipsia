@@ -28,7 +28,12 @@ SearchLight::SearchLight(int number_of_bands,
                          int number_of_samples, 
                          sample_3d_array_type sample_features, 
                          vector<int> classes,
-                         int radius
+                         double radius,
+                         int svm_type,
+                         int svm_kernel_type,
+                         double extension_band,
+                         double extension_row,
+                         double extension_column
                ) : 
                 number_of_bands_(number_of_bands), 
                 number_of_rows_(number_of_rows), 
@@ -36,7 +41,13 @@ SearchLight::SearchLight(int number_of_bands,
                 number_of_samples_(number_of_samples), 
                 sample_features_(sample_features),
                 classes_(classes),
-                radius_(radius)
+                radius_(radius),
+                svm_type_(svm_type),
+                svm_kernel_type_(svm_kernel_type),
+                extension_band_(extension_band),
+                extension_row_(extension_row),
+                extension_column_(extension_column)
+
 {
   //printConfiguration();
 }
@@ -66,7 +77,7 @@ vector<coords_3d> SearchLight::radius_pixels() {
   for (int rel_band(-radius_);rel_band <= radius_; rel_band++)
     for (int rel_row(-radius_);rel_row <= radius_; rel_row++)
       for (int rel_column(-radius_);rel_column <= radius_; rel_column++) {
-        if ((rel_band * rel_band + rel_row * rel_row + rel_column * rel_column) <= distance) {
+        if ((pow(rel_band * extension_band_,2) + pow(rel_row * extension_row_,2) + pow(rel_column * extension_column_,2)) <= distance) {
           coords_3d to_insert = { { rel_band, rel_row, rel_column} };
           tmp.push_back(to_insert);
         }
@@ -130,11 +141,15 @@ sample_validity_array_type SearchLight::calculate() {
   // Find relative coordinates of pixels within radius
   vector<coords_3d> relative_coords = radius_pixels();
 
-  // Walk through all voxels of the image data
+  cout << "Contains " << relative_coords.size() << " voxels " << endl;
+
   sample_validity_array_type validities(boost::extents[number_of_bands_][number_of_rows_][number_of_columns_]);
+
+  // Walk through all voxels of the image data
   boost::progress_display show_progress(number_of_bands_ * number_of_rows_);
 
-#pragma omp parallel for default(none) shared(validities,show_progress) firstprivate(relative_coords) schedule(dynamic) num_threads(4)
+//#pragma omp parallel for default(none) shared(validities,show_progress) firstprivate(relative_coords) schedule(dynamic) num_threads(8)
+#pragma omp parallel for default(none) shared(validities,show_progress) firstprivate(relative_coords) schedule(dynamic)
   for(int band = 0; band < number_of_bands_; band++) {
     for(int row(0); row < number_of_rows_; row++) {
 #pragma omp critical

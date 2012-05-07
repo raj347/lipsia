@@ -112,15 +112,21 @@ int main (int argc,char *argv[]) {
   VDouble           svm_gamma       = DEFAULT_MRISVM_GAMMA;
   VString           svm_type        = NULL;
   VString           svm_kernel_type = NULL;
+  VDouble           radius          = DEFAULT_SEARCHLIGHT_RADIUS;
+  VBoolean          do_scale        = false;
+
+  FILE *out_file;
 
   static VOptionDescRec program_options[] = {
-    {"in",          VStringRepn, 0, &input_filenames, VRequiredOpt, NULL, "Input files" },
-    {"svm_type",    VStringRepn, 1, &svm_type,        VOptionalOpt, NULL, "SVM Type" },
-    {"kernel_type", VStringRepn, 1, &svm_kernel_type, VOptionalOpt, NULL, "Kernel Type" },
-    {"C",           VDoubleRepn, 1, &svm_C,           VOptionalOpt, NULL, "SVM C parameter" },
-    {"gamma",       VDoubleRepn, 1, &svm_gamma,       VOptionalOpt, NULL, "SVM gamma parameter" }
+    {"in",          VStringRepn,  0, &input_filenames, VRequiredOpt, NULL, "Input files" },
+    {"svm_type",    VStringRepn,  1, &svm_type,        VOptionalOpt, NULL, "SVM Type" },
+    {"kernel_type", VStringRepn,  1, &svm_kernel_type, VOptionalOpt, NULL, "Kernel Type" },
+    {"C",           VDoubleRepn,  1, &svm_C,           VOptionalOpt, NULL, "SVM C parameter" },
+    {"radius",      VDoubleRepn,  1, &radius,          VOptionalOpt, NULL, "Searchlight Radius (in mm)" },
+    {"scale",       VBooleanRepn, 1, &do_scale,        VOptionalOpt, NULL, "Whether to scale data"},
+    {"gamma",       VDoubleRepn,  1, &svm_gamma,       VOptionalOpt, NULL, "SVM gamma parameter" }
   };
-  VParseFilterCmd(VNumber (program_options),program_options,argc,argv,NULL,NULL);
+  VParseFilterCmd(VNumber (program_options),program_options,argc,argv,NULL,&out_file);
 
   // Translate SVM parameter strings to enums
   int svm_type_parsed         = parseSvmType(svm_type);
@@ -193,49 +199,86 @@ int main (int argc,char *argv[]) {
    * Convert to usable format  *
    *****************************/
 
-  sample_features_array_type sample_features(boost::extents[number_of_images][number_of_features]);
+  int number_of_bands   = VImageNBands(source_images[0]);
+  int number_of_rows    = VImageNRows(source_images[0]);
+  int number_of_columns = VImageNColumns(source_images[0]);
 
+  sample_3d_array_type sample_features(boost::extents[number_of_images][number_of_bands][number_of_rows][number_of_columns]);
   vector <int> classes(number_of_images);
 
-  cerr << "Converting Data into MriSvm Format" << endl;
+  cerr << "Converting Data into SearchLightSvm Format" << endl;
   boost::progress_display convert_progress(number_of_images);
   for(int sample_index(0); sample_index < number_of_images; sample_index++) {
     ++convert_progress;
-    //cerr << "Converting data from image " << sample_index << endl;
-
     long image_class = DEFAULT_VSVM_IMAGE_CLASS;
+
     if(VGetAttr(VImageAttrList(source_images[sample_index]), "class", NULL, VLongRepn, &image_class) != VAttrFound) {
       cerr << "Image does not have class attribute. Using default value (" << DEFAULT_VSVM_IMAGE_CLASS << ")" << endl;
     }
+
     classes[sample_index] = image_class;
 
-    int feature_index(0);
-    for(int band(0); band < VImageNBands(source_images[sample_index]); band++) {
-      for(int row(0); row < VImageNRows(source_images[sample_index]); row++) {
-        for(int column(0); column < VImageNColumns(source_images[sample_index]); column++) {
-          sample_features[sample_index][feature_index] = VGetPixel(source_images[sample_index],band,row,column);
-          feature_index++;
+    for(int band(0); band < number_of_bands; band++) {
+      for(int row(0); row < number_of_rows; row++) {
+        for(int column(0); column < number_of_columns; column++) {
+          sample_features[sample_index][band][row][column] = VGetPixel(source_images[sample_index],band,row,column);
         }
       }
     }
   }
 
-  /***************
-   * Conduct SVM *
-   ***************/
+  // Find extension of voxels from first picture
+  VString voxel_extension;
+  if(VGetAttr(VImageAttrList(source_images[0]), "voxel", NULL, VStringRepn, &voxel_extension) != VAttrFound) {
+    cerr << "Image does not have voxel attribute. Cannot do without." << endl;
+    exit(-1);
+  }
 
-  // Initialise SVM 
-  MriSvm mrisvm(number_of_images,number_of_features,sample_features,classes,svm_type_parsed,svm_kernel_type_parsed);
+  double extension_band,extension_row,extension_column;
+  if (sscanf(voxel_extension,"%lf %lf %lf",&extension_band,&extension_row,&extension_column) != 3) {
+    cerr << "Cannot parse voxel value. Need three double values." << endl;
+    exit(-1);
+  }
 
-  // Scale features
-  mrisvm.scale();
+  /***************************
+   * Conduct Searchlight SVM *
+   ***************************/
 
-  // Validate
-  cerr << "Cross validating" << endl;
-  double validity = mrisvm.cross_validate(10,2);
-  cerr << "Cross Validation Accuracy = " << 100.0*validity << endl; 
+  SearchLight sl(number_of_bands,number_of_rows,number_of_columns,number_of_images,sample_features,classes,radius,svm_type_parsed,svm_kernel_type_parsed,extension_band,extension_row,extension_column);
+  /* Measure time */
+  struct timespec start,end;
+  clock_gettime(CLOCK_MONOTONIC,&start);
 
-  // Export
-  //mrisvm.export_table(std::string("raw_data.tab"));
+  if (do_scale) {
+    sl.scale();
+  }
+
+  sample_validity_array_type validities = sl.calculate();
+  clock_gettime(CLOCK_MONOTONIC,&end);
+  long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
+  cout << "Execution time: " << execution_time / 1e9 << "s" << endl;
+
+
+  /*******************************
+   * Save result into vista file *
+   *******************************/
+
+  VImage dest = VCreateImage(number_of_bands,number_of_rows,number_of_columns,VFloatRepn);
+  VFillImage(dest,VAllBands,0);
+  VCopyImageAttrs (source_images[0], dest);
+  VSetAttr(VImageAttrList(dest),"modality",NULL,VStringRepn,"conimg");
+
+  for(int band(0); band < number_of_bands; band++) {
+    for(int row(0); row < number_of_rows; row++) {
+      for(int column(0); column < number_of_columns; column++) {
+        VPixel(dest,band,row,column,VFloat) = validities[band][row][column];
+      }
+    }
+  }
+  VSetAttr(VImageAttrList(dest),"name",NULL,VStringRepn,"SearchlightSVM");
+  VAttrList out_list = VCreateAttrList();
+  VAppendAttr(out_list,"image",NULL,VImageRepn,dest);
+  VHistory(VNumber(program_options),program_options,argv[0],&attribute_list,&out_list);
+  VWriteFile(out_file, out_list);
 }
 

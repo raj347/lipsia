@@ -8,6 +8,8 @@
 #include <iostream>
 #include <fstream>
 
+#include <boost/foreach.hpp>
+
 #include "MriSvm.h"
 
 using std::ofstream;
@@ -18,6 +20,17 @@ using std::endl;
 static void print_nothing(const char *s)
 {
 
+}
+
+
+static int rand_int(int n) {
+  int limit = RAND_MAX - RAND_MAX % n;
+  int rnd;
+  
+  do {
+    rnd = rand();
+  } while (rnd >= limit);
+  return rnd % n;
 }
 
 MriSvm::MriSvm( long int number_of_samples,
@@ -49,17 +62,36 @@ MriSvm::MriSvm( long int number_of_samples,
   parameters_ = getDefaultParameters();
   parameters_.svm_type    = svm_type;
   parameters_.kernel_type = kernel_type;
-  //printConfiguration();
+  printConfiguration();
 }
 
 MriSvm::~MriSvm() {
 
 }
 
+void MriSvm::shuffle(int *array) {
+  int j,tmp;
+  
+  for (int sample_index(number_of_samples_ - 1); sample_index > 0; sample_index--) {
+    j = rand_int(sample_index + 1);
+    tmp = array[j];
+    array[j] = array[sample_index];
+    array[sample_index] = tmp;
+  }
+  
+}
+
 void MriSvm::printConfiguration() {
   cout << "MriSvm configuration" << endl;
   cout << "number_of_samples="  << number_of_samples_ << endl;
   cout << "number_of_features=" << number_of_features_ << endl;
+  
+  cout << "Classes" << endl;
+  cout << "=======" << endl;
+  for (int classes_index(0); classes_index < number_of_samples_; classes_index++) {
+    cout << classes_[classes_index] << " ";
+  }
+  cout << endl;
 }
 
 void MriSvm::scale() {
@@ -87,53 +119,109 @@ void MriSvm::scale() {
   }
 }
 
-double MriSvm::cross_validate() {
-  /* Fill response vector with classes */ 
-  double y[number_of_samples_]; // Classes
-  for (long int sample_index(0); sample_index < number_of_samples_; sample_index++) {
-    y[sample_index] = classes_[sample_index];
+double MriSvm::cross_validate(int count, int leaveout) {
+  int number_of_trainings_samples = number_of_samples_ - leaveout;
+  
+  /* Sanity Checks */
+  if (number_of_trainings_samples < 2) {
+    cerr << "I need at least two trainings samples in cross validation." << endl;
+    exit(-1);
   }
-
-  /* Fill predictor matrix with voxel data */
-  struct svm_problem problem;
-  problem.l = number_of_samples_;
-  problem.y = y;
-  problem.x = (struct svm_node *) calloc(number_of_samples_,sizeof(struct svm_node));
-  for (long int sample_index(0); sample_index < number_of_samples_; sample_index++) {
-    problem.x[sample_index].values  = (double *) calloc(number_of_features_,sizeof(double));
-    problem.x[sample_index].dim     = number_of_features_;
+  if (count < 1) {
+    cerr << "I need at least two cross validation rounds." << endl;
+    exit(-1);
+  }
+  
+  /* Seed random number generator */
+  srand(time(NULL));
+  /* Don't let libsvm print anything out */
+  svm_set_print_string_function(print_nothing);
+  
+  /* Problem looks this way (e.g. with 6 samples and 3 features):
+   * .l = 6
+   *       _ _ _ _ _ _
+   * .y = |_|_|_|_|_|_|
+   * 
+   *        _
+   * .x -> | |.dim = 3;   _ _ _
+   *       |_|.values -> |_|_|_|
+   *       | |.dim = 3;   _ _ _
+   *       |_|.values -> |_|_|_|
+   *       | |.dim = 3;   _ _ _
+   *       |_|.values -> |_|_|_|
+   *       | |.dim = 3;   _ _ _
+   *       |_|.values -> |_|_|_|
+   *       | |.dim = 3;   _ _ _
+   *       |_|.values -> |_|_|_|
+   *       | |.dim = 3;   _ _ _
+   *       |_|.values -> |_|_|_|
+   *       
+   */
+  
+  /* Convert all data to libsvm-Format */
+  struct svm_node all_data[number_of_samples_];
+  for (int sample_index(0); sample_index < number_of_samples_; sample_index++) {
+    all_data[sample_index].values  = (double *) calloc(number_of_features_,sizeof(double));
+    all_data[sample_index].dim     = number_of_features_;
     for(long int feature_index(0); feature_index < number_of_features_; feature_index++) {
-      problem.x[sample_index].values[feature_index] = sample_features_[sample_index][feature_index];
+      all_data[sample_index].values[feature_index] = sample_features_[sample_index][feature_index];
     }
   }
-    
-  // Cross validate
-  double target[number_of_samples_]; 
-
-  svm_set_print_string_function(print_nothing);
-  /*
-  const char *error_msg = svm_check_parameter(&problem,&parameters_);
-  if(error_msg)
-  {
-    cerr << "ERROR: " << error_msg << endl;
-    exit(1);
+  
+  /* Training Problem (will be a sub problem of all_data) */
+  double training_classes[number_of_trainings_samples];
+  struct svm_problem trainings_problem;
+  trainings_problem.l = number_of_trainings_samples;
+  trainings_problem.x = (struct svm_node *) calloc(number_of_trainings_samples,sizeof(struct svm_node));
+  
+  /* Array containing the indices of samples */
+  int shuffle_indices[number_of_samples_];
+  for (int sample_index(0); sample_index < number_of_samples_; sample_index++) {
+    shuffle_indices[sample_index] = sample_index;
   }
-  */
-  svm_cross_validation(&problem,&parameters_,DEFAULT_MRISVM_CROSS_VALIDATION,target);
 
   int total_correct = 0;
-  for(int i=0;i<number_of_samples_;i++) {
-    if(target[i] == problem.y[i])
-        ++total_correct;
+  for(int cross_validation_loop(0); cross_validation_loop < count; cross_validation_loop++) {
+//     cout << "Cross Validation Round " << cross_validation_loop << endl;
+    shuffle(shuffle_indices);
+//     cout << "Shuffle:";
+/*    for (int sample_index(0); sample_index < number_of_samples_; sample_index++) {
+      cout << " " << shuffle_indices[sample_index];
+    }
+    cout << endl;*/
+   
+//     cout << "Training from";
+    // Train SVM
+    for(int trainings_index(0); trainings_index < number_of_trainings_samples;trainings_index++) {
+      int original_index = shuffle_indices[trainings_index];
+      training_classes[trainings_index]           = classes_[original_index];
+      trainings_problem.x[trainings_index].values = all_data[original_index].values;
+      trainings_problem.x[trainings_index].dim    = number_of_features_;
+//       cout << " " << original_index;
+    }
+//     cout << endl;
+    
+/*    cout << "Training Classes" << endl;
+    for (int classes_index(0); classes_index < number_of_trainings_samples; classes_index++) {
+      cout << training_classes[classes_index] << " ";
+    }
+    cout << endl;*/
+   
+    trainings_problem.y = training_classes;
+    struct svm_model *trained_model = svm_train(&trainings_problem,&parameters_);
+    // Predict
+    for (int prediction_index = 0; prediction_index < leaveout; prediction_index++) {
+      int original_index = shuffle_indices[number_of_trainings_samples + prediction_index];
+//       cout << "Prediction number " << prediction_index << " with index " << original_index << endl;
+      double prediction = svm_predict(trained_model,&(all_data[original_index]));
+//       cout << "Prediction: " << prediction << endl;
+      if (prediction == classes_[original_index]) {
+        total_correct++;
+      }
+    }
+    
   }
-
-  // Free memory again
-  for (long int sample_index(0); sample_index < number_of_samples_; sample_index++) {
-    free(problem.x[sample_index].values);
-  }
-  free(problem.x);
-
-  return((double) total_correct/ (double) number_of_samples_);
+  return (double) total_correct / (double) (count * leaveout);
 }
 
 /* Export for R */

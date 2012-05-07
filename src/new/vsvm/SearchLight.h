@@ -16,6 +16,7 @@
 
 #define DEFAULT_SEARCHLIGHT_SCALE_LOWER 0
 #define DEFAULT_SEARCHLIGHT_SCALE_UPPER 1
+#define DEFAULT_SEARCHLIGHT_RADIUS      3
 
 #include "MriSvm.h"
 
@@ -36,7 +37,13 @@ public:
       int number_of_samples, 
       sample_3d_array_type sample_features, 
       vector<int> classes,
-      int radius);
+      double radius,
+      int svm_type,
+      int svm_kernel_type,
+      double extension_band,
+      double extension_row,
+      double extension_column
+      );
 
   virtual ~SearchLight();
   void printConfiguration();
@@ -56,7 +63,12 @@ private:
   int      number_of_samples_;
   sample_3d_array_type sample_features_;
   vector <int>  classes_;
-  int           radius_;
+  double  radius_;
+
+  int     svm_type_;
+  int     svm_kernel_type_;
+  
+  double extension_band_,extension_row_,extension_column_;
 
 };
 
