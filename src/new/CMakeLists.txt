@@ -33,3 +33,6 @@ add_subdirectory(vpaired_ccm)
 add_subdirectory(vncm)
 add_subdirectory(vcompcor)
 add_subdirectory(vsvm)
+
+add_subdirectory(vselect)
+add_subdirectory(vmerge)
