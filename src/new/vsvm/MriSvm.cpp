@@ -182,39 +182,23 @@ double MriSvm::cross_validate(int count, int leaveout) {
 
   int total_correct = 0;
   for(int cross_validation_loop(0); cross_validation_loop < count; cross_validation_loop++) {
-//     cout << "Cross Validation Round " << cross_validation_loop << endl;
     shuffle(shuffle_indices);
-//     cout << "Shuffle:";
-/*    for (int sample_index(0); sample_index < number_of_samples_; sample_index++) {
-      cout << " " << shuffle_indices[sample_index];
-    }
-    cout << endl;*/
    
-//     cout << "Training from";
     // Train SVM
     for(int trainings_index(0); trainings_index < number_of_trainings_samples;trainings_index++) {
       int original_index = shuffle_indices[trainings_index];
       training_classes[trainings_index]           = classes_[original_index];
       trainings_problem.x[trainings_index].values = all_data[original_index].values;
       trainings_problem.x[trainings_index].dim    = number_of_features_;
-//       cout << " " << original_index;
     }
-//     cout << endl;
     
-/*    cout << "Training Classes" << endl;
-    for (int classes_index(0); classes_index < number_of_trainings_samples; classes_index++) {
-      cout << training_classes[classes_index] << " ";
-    }
-    cout << endl;*/
-   
     trainings_problem.y = training_classes;
     struct svm_model *trained_model = svm_train(&trainings_problem,&parameters_);
+    
     // Predict
     for (int prediction_index = 0; prediction_index < leaveout; prediction_index++) {
       int original_index = shuffle_indices[number_of_trainings_samples + prediction_index];
-//       cout << "Prediction number " << prediction_index << " with index " << original_index << endl;
       double prediction = svm_predict(trained_model,&(all_data[original_index]));
-//       cout << "Prediction: " << prediction << endl;
       if (prediction == classes_[original_index]) {
         total_correct++;
       }
