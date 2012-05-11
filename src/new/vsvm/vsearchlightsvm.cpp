@@ -22,6 +22,7 @@
 #include "boost/multi_array.hpp"
 #include "boost/assign.hpp"
 #include <boost/progress.hpp>
+#include <boost/foreach.hpp>
 
 // VIA header
 #include <viaio/Vlib.h>
@@ -137,17 +138,17 @@ int main (int argc,char *argv[]) {
    *******************************************/
 
   int number_of_images = input_filenames.number;
-  VImage source_images[number_of_images];
+  vector<VImage> source_images[number_of_images];
 
   long int number_of_features = 0;
+  int number_of_features_per_voxel = 0;
   VAttrList attribute_list;
-
+  
   cerr << "Reading Image Files" << endl;
 
   boost::progress_display file_progress(number_of_images);
   for(int i(0); i < number_of_images; i++) {
     ++file_progress;
-    source_images[i] = NULL;
 
     /*******************
      * Read image file *
@@ -167,6 +168,7 @@ int main (int argc,char *argv[]) {
       VError("Error reading image");
 
     VAttrListPosn position;
+    int this_number_of_features_per_voxel = 0;
     for (VFirstAttr(attribute_list, &position); VAttrExists(&position); VNextAttr(&position)) {
       if (VGetAttrRepn(&position) != VImageRepn)
         continue;
@@ -178,32 +180,39 @@ int main (int argc,char *argv[]) {
       VGetAttr(VImageAttrList(image), "name", NULL, VStringRepn, &name);
       //cerr << "  Name: " << name << endl;
 
-      source_images[i] = image;
-      break;
+      source_images[i].push_back(image);
+      this_number_of_features_per_voxel++;
+      
+      // Get number of features (i.e. bands * rows * columns)
+      int this_number_of_features = VImageNPixels(image);
+      if (0 == number_of_features) {
+        number_of_features = this_number_of_features;
+      } else if (number_of_features != this_number_of_features) {
+        VError("Error: Number of features differs from number of features in previous pictures.");
+      }
+    }
+    
+    if (this_number_of_features_per_voxel == 0) 
+      VError("No input image found");
+    
+    if (number_of_features_per_voxel == 0) {
+      number_of_features_per_voxel = this_number_of_features_per_voxel;
+    } else if (number_of_features_per_voxel != this_number_of_features_per_voxel) {
+      VError("This file has a different number of images than previous files.");
     }
 
-    if (source_images[i] == NULL) VError("No input image found");
-
-    // Get number of features (i.e. bands * rows * columns)
-    int this_number_of_features = VImageNPixels(source_images[i]);
-    if (0 == number_of_features) {
-      number_of_features = this_number_of_features;
-    } else if (number_of_features != this_number_of_features) {
-      VError("Error: Number of features differs from number of features in previous pictures.");
-    }
 
   }
-
 
   /*****************************
    * Convert to usable format  *
    *****************************/
 
-  int number_of_bands   = VImageNBands(source_images[0]);
-  int number_of_rows    = VImageNRows(source_images[0]);
-  int number_of_columns = VImageNColumns(source_images[0]);
+  int number_of_bands   = VImageNBands(source_images[0].front());
+  int number_of_rows    = VImageNRows(source_images[0].front());
+  int number_of_columns = VImageNColumns(source_images[0].front());
 
-  sample_3d_array_type sample_features(boost::extents[number_of_images][number_of_bands][number_of_rows][number_of_columns]);
+  sample_3d_array_type sample_features(boost::extents[number_of_images][number_of_bands][number_of_rows][number_of_columns][number_of_features_per_voxel]);
   vector <int> classes(number_of_images);
 
   cerr << "Converting Data into SearchLightSvm Format" << endl;
@@ -212,24 +221,28 @@ int main (int argc,char *argv[]) {
     ++convert_progress;
     long image_class = DEFAULT_VSVM_IMAGE_CLASS;
 
-    if(VGetAttr(VImageAttrList(source_images[sample_index]), "class", NULL, VLongRepn, &image_class) != VAttrFound) {
+    if(VGetAttr(VImageAttrList(source_images[sample_index].front()), "class", NULL, VLongRepn, &image_class) != VAttrFound) {
       cerr << "Image does not have class attribute. Using default value (" << DEFAULT_VSVM_IMAGE_CLASS << ")" << endl;
     }
 
     classes[sample_index] = image_class;
 
-    for(int band(0); band < number_of_bands; band++) {
-      for(int row(0); row < number_of_rows; row++) {
-        for(int column(0); column < number_of_columns; column++) {
-          sample_features[sample_index][band][row][column] = VGetPixel(source_images[sample_index],band,row,column);
+    BOOST_FOREACH(VImage image, source_images[sample_index]) {
+      int feature_index = 0;
+      for(int band(0); band < number_of_bands; band++) {
+        for(int row(0); row < number_of_rows; row++) {
+          for(int column(0); column < number_of_columns; column++) {
+            sample_features[sample_index][band][row][column][feature_index] = VGetPixel(image,band,row,column);
+          }
         }
       }
+      feature_index++;
     }
   }
 
   // Find extension of voxels from first picture
   VString voxel_extension;
-  if(VGetAttr(VImageAttrList(source_images[0]), "voxel", NULL, VStringRepn, &voxel_extension) != VAttrFound) {
+  if(VGetAttr(VImageAttrList(source_images[0].front()), "voxel", NULL, VStringRepn, &voxel_extension) != VAttrFound) {
     cerr << "Image does not have voxel attribute. Cannot do without." << endl;
     exit(-1);
   }
@@ -244,7 +257,7 @@ int main (int argc,char *argv[]) {
    * Conduct Searchlight SVM *
    ***************************/
 
-  SearchLight sl(number_of_bands,number_of_rows,number_of_columns,number_of_images,sample_features,classes,radius,svm_type_parsed,svm_kernel_type_parsed,extension_band,extension_row,extension_column);
+  SearchLight sl(number_of_bands,number_of_rows,number_of_columns,number_of_images,number_of_features_per_voxel,sample_features,classes,radius,svm_type_parsed,svm_kernel_type_parsed,extension_band,extension_row,extension_column);
   /* Measure time */
   struct timespec start,end;
   clock_gettime(CLOCK_MONOTONIC,&start);
@@ -265,7 +278,7 @@ int main (int argc,char *argv[]) {
 
   VImage dest = VCreateImage(number_of_bands,number_of_rows,number_of_columns,VFloatRepn);
   VFillImage(dest,VAllBands,0);
-  VCopyImageAttrs (source_images[0], dest);
+  VCopyImageAttrs (source_images[0].front(), dest);
   VSetAttr(VImageAttrList(dest),"modality",NULL,VStringRepn,"conimg");
 
   for(int band(0); band < number_of_bands; band++) {

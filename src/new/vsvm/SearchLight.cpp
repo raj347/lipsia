@@ -26,6 +26,7 @@ SearchLight::SearchLight(int number_of_bands,
                          int number_of_rows, 
                          int number_of_columns, 
                          int number_of_samples, 
+                         int number_of_features_per_voxel,
                          sample_3d_array_type sample_features, 
                          vector<int> classes,
                          double radius,
@@ -39,6 +40,7 @@ SearchLight::SearchLight(int number_of_bands,
                 number_of_rows_(number_of_rows), 
                 number_of_columns_(number_of_columns), 
                 number_of_samples_(number_of_samples), 
+                number_of_features_per_voxel_(number_of_features_per_voxel),
                 sample_features_(sample_features),
                 classes_(classes),
                 radius_(radius),
@@ -62,6 +64,7 @@ void SearchLight::printConfiguration() {
   cout << "number_of_rows="     << number_of_rows_    << endl;
   cout << "number_of_columns="  << number_of_columns_ << endl;
   cout << "number_of_samples="  << number_of_samples_ << endl;
+  cout << "feature_dimension="  << number_of_features_per_voxel_ << endl;
   cout << "radius="             << radius_            << endl;
 }
 
@@ -88,10 +91,12 @@ vector<coords_3d> SearchLight::radius_pixels() {
 /*
  * Tests if feature has a value of 0.0 in every sample
  */
-bool SearchLight::is_feature_zero(int band,int row,int column) {
+bool SearchLight::is_voxel_zero(int band,int row,int column) {
   for (int sample(0);sample < number_of_samples_;sample++) {
-    if (sample_features_[sample][band][row][column] != 0.0)
-      return(false);
+    for(int feature_index(0); feature_index < number_of_features_per_voxel_; feature_index++) {
+      if (sample_features_[sample][band][row][column][feature_index] != 0.0)
+        return(false);
+    }
   }
   return(true);
 }
@@ -113,7 +118,7 @@ bool SearchLight::are_coordinates_valid(int band,int row,int column) {
  * Calculates cross validation accuracy of voxel at position specified by (band,row,colum)
  */
 double SearchLight::cross_validate(int band, int row, int column,vector<coords_3d> &relative_coords) {
-  int number_of_features = relative_coords.size();
+  int number_of_features = relative_coords.size() * number_of_features_per_voxel_;
   sample_features_array_type sample_features(boost::extents[number_of_samples_][number_of_features]);
 
   int feature_number = 0;
@@ -123,14 +128,16 @@ double SearchLight::cross_validate(int band, int row, int column,vector<coords_3
     int column_coord  = column  + coords[2];
 
     if (are_coordinates_valid(band_coord,row_coord,column_coord)) {
-      for(int sample(0);sample < number_of_samples_;sample++) {
-        sample_features[sample][feature_number] = sample_features_[sample][band_coord][row_coord][column_coord];
+      for(int feature_index(0); feature_index < number_of_features_per_voxel_; feature_index++) {
+        for(int sample(0);sample < number_of_samples_;sample++) {
+          sample_features[sample][feature_number] = sample_features_[sample][band_coord][row_coord][column_coord][feature_index];
+        }
+        feature_number++;
       }
-      feature_number++;
     }
   }
   MriSvm mrisvm(number_of_samples_,feature_number,sample_features,classes_);
-  return(mrisvm.cross_validate());
+  return(mrisvm.cross_validate(20,2));
 }
 
 /*
@@ -156,7 +163,7 @@ sample_validity_array_type SearchLight::calculate() {
      ++show_progress;
       for(int column(0); column < number_of_columns_; column++) {
         // Check if this is an actual brain pixel
-        if (!(is_feature_zero(band,row,column))) {
+        if (!(is_voxel_zero(band,row,column))) {
           // Put stuff into feature fector, to SVM
           validities[band][row][column] = cross_validate(band,row,column,relative_coords);
         } else {
@@ -172,6 +179,30 @@ sample_validity_array_type SearchLight::calculate() {
  * Scales all features
  */
 
+void SearchLight::scale_voxel_feature(int band, int row, int column,int feature) {
+  // Find range of values of this feature
+  double max = DBL_MIN;
+  double min = DBL_MAX;
+  for (long int sample_index(0); sample_index < number_of_samples_; sample_index++) {
+    double x = sample_features_[sample_index][band][row][column][feature];
+    if (x < min) {
+      min = x;
+    }
+    if (x > max) {
+      max = x;
+    }
+  }
+  
+  // Scale
+  for (long int sample_index(0); sample_index < number_of_samples_; sample_index++) {
+    double x = sample_features_[sample_index][band][row][column][feature];
+    double lower = DEFAULT_SEARCHLIGHT_SCALE_LOWER;
+    double upper = DEFAULT_SEARCHLIGHT_SCALE_UPPER;
+    
+    sample_features_[sample_index][band][row][column][feature] = lower + (upper - lower) * (x - min) / (max - min);
+  }
+}
+
 void SearchLight::scale() {
   cout << "Scaling" << endl;
   boost::progress_display show_progress(number_of_bands_ * number_of_rows_);
@@ -179,28 +210,10 @@ void SearchLight::scale() {
     for(int row(0); row < number_of_rows_; row++) {
       ++show_progress;
       for(int column(0); column < number_of_columns_; column++) {
-        if (!(is_feature_zero(band,row,column))) {
-          // Find range of values of this feature
-          double max = DBL_MIN;
-          double min = DBL_MAX;
-          for (long int sample_index(0); sample_index < number_of_samples_; sample_index++) {
-            if (sample_features_[sample_index][band][row][column] < min) {
-              min = sample_features_[sample_index][band][row][column];
-            }
-            if (sample_features_[sample_index][band][row][column] > max) {
-              max = sample_features_[sample_index][band][row][column];
-            }
+        if (!(is_voxel_zero(band,row,column)))
+          for(int feature(0); feature < number_of_features_per_voxel_; feature++) {
+            scale_voxel_feature(band,row,column,feature);
           }
-
-          // Scale
-          for (long int sample_index(0); sample_index < number_of_samples_; sample_index++) {
-            double x = sample_features_[sample_index][band][row][column];
-            double lower = DEFAULT_SEARCHLIGHT_SCALE_LOWER;
-            double upper = DEFAULT_SEARCHLIGHT_SCALE_UPPER;
-
-            sample_features_[sample_index][band][row][column] = lower + (upper - lower) * (x - min) / (max - min);
-          }
-        }
       }
     }
   }

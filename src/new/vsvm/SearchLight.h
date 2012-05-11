@@ -25,7 +25,7 @@
 
 using std::vector;
 
-typedef boost::multi_array<double, 4> sample_3d_array_type;
+typedef boost::multi_array<double, 5> sample_3d_array_type; // sample,band,row,column,feature
 typedef boost::multi_array<double, 3> sample_validity_array_type;
 typedef boost::array<int,3>           coords_3d;
 
@@ -35,6 +35,7 @@ public:
       int number_of_rows, 
       int number_of_columns, 
       int number_of_samples, 
+      int number_of_features_per_voxel,
       sample_3d_array_type sample_features, 
       vector<int> classes,
       double radius,
@@ -52,15 +53,17 @@ public:
 
 private:
   vector<coords_3d> radius_pixels();
-  bool              is_feature_zero(int,int,int);
+  bool              is_voxel_zero(int,int,int);
   bool              are_coordinates_valid(int,int,int);
   double            cross_validate(int,int,int,vector<coords_3d>&);
   struct svm_parameter getDefaultParameters();
+  void              scale_voxel_feature(int band, int row, int column,int feature);
 
   int      number_of_bands_;
   int      number_of_rows_;
   int      number_of_columns_;
   int      number_of_samples_;
+  int      number_of_features_per_voxel_;
   sample_3d_array_type sample_features_;
   vector <int>  classes_;
   double  radius_;
