@@ -48,7 +48,8 @@ SearchLight::SearchLight(int number_of_bands,
                 svm_kernel_type_(svm_kernel_type),
                 extension_band_(extension_band),
                 extension_row_(extension_row),
-                extension_column_(extension_column)
+                extension_column_(extension_column),
+                do_show_progress(DEFAULT_SEARCHLIGHT_DO_SHOW_PROGRESS)
 
 {
   //printConfiguration();
@@ -114,12 +115,7 @@ bool SearchLight::are_coordinates_valid(int band,int row,int column) {
 
 }
 
-/*
- * Calculates cross validation accuracy of voxel at position specified by (band,row,colum)
- */
-double SearchLight::cross_validate(int band, int row, int column,vector<coords_3d> &relative_coords) {
-  int number_of_features = relative_coords.size() * number_of_features_per_voxel_;
-  sample_features_array_type sample_features(boost::extents[number_of_samples_][number_of_features]);
+int SearchLight::prepare_for_mrisvm(sample_features_array_type &sample_features,int band, int row, int column,vector<coords_3d> &relative_coords) {
 
   int feature_number = 0;
   BOOST_FOREACH(coords_3d coords,relative_coords) {
@@ -136,26 +132,43 @@ double SearchLight::cross_validate(int band, int row, int column,vector<coords_3
       }
     }
   }
-  MriSvm mrisvm(number_of_samples_,feature_number,sample_features,classes_);
-  return(mrisvm.cross_validate(20,2));
+  return feature_number;
+}
+
+/*
+ * Calculates cross validation accuracy of voxel at position specified by (band,row,colum)
+ */
+double SearchLight::cross_validate(int band, int row, int column,vector<coords_3d> &relative_coords) {
+  int number_of_features = relative_coords.size() * number_of_features_per_voxel_;
+  
+  sample_features_array_type sample_features(boost::extents[number_of_samples_][number_of_features]);
+  
+  int feature_number = prepare_for_mrisvm(sample_features,band,row,column,relative_coords);
+  MriSvm mrisvm(
+                sample_features,
+                classes_,
+                number_of_samples_,
+                feature_number
+               );
+  
+  return(mrisvm.cross_validate(5,2));
 }
 
 /*
  * Calculates cross validation accuracy for all voxels
  */
 sample_validity_array_type SearchLight::calculate() {
-  cout << "Calculating SearchLight" << endl;
+  cerr << "Calculating SearchLight" << endl;
   // Find relative coordinates of pixels within radius
   vector<coords_3d> relative_coords = radius_pixels();
 
-  cout << "Contains " << relative_coords.size() << " voxels " << endl;
+  cerr << "Contains " << relative_coords.size() << " voxels " << endl;
 
   sample_validity_array_type validities(boost::extents[number_of_bands_][number_of_rows_][number_of_columns_]);
 
   // Walk through all voxels of the image data
   boost::progress_display show_progress(number_of_bands_ * number_of_rows_);
 
-//#pragma omp parallel for default(none) shared(validities,show_progress) firstprivate(relative_coords) schedule(dynamic) num_threads(8)
 #pragma omp parallel for default(none) shared(validities,show_progress) firstprivate(relative_coords) schedule(dynamic)
   for(int band = 0; band < number_of_bands_; band++) {
     for(int row(0); row < number_of_rows_; row++) {
@@ -172,6 +185,39 @@ sample_validity_array_type SearchLight::calculate() {
       }
     }
   }
+  return validities;
+}
+
+vector<sample_validity_array_type> SearchLight::calculate_permutations(int number_of_permutations) {
+  cerr << "Calculating SearchLight Permutations" << endl;
+  // Find relative coordinates of pixels within radius
+  vector<coords_3d> relative_coords = radius_pixels();
+
+  cerr << "Contains " << relative_coords.size() << " voxels " << endl;
+
+  sample_validity_array_type validity(boost::extents[number_of_bands_][number_of_rows_][number_of_columns_]);
+
+  // Walk through all voxels of the image data
+  boost::progress_display show_progress(number_of_bands_ * number_of_rows_);
+
+#pragma omp parallel for default(none) shared(validity,show_progress) firstprivate(relative_coords) schedule(dynamic)
+  for(int band = 0; band < number_of_bands_; band++) {
+    for(int row(0); row < number_of_rows_; row++) {
+#pragma omp critical
+     ++show_progress;
+      for(int column(0); column < number_of_columns_; column++) {
+        // Check if this is an actual brain pixel
+        if (!(is_voxel_zero(band,row,column))) {
+          // Put stuff into feature fector, to SVM
+          validity[band][row][column] = cross_validate(band,row,column,relative_coords);
+        } else {
+          validity[band][row][column] = 0.0;
+        }
+      }
+    }
+  }
+  vector<sample_validity_array_type> validities;
+  validities.push_back(validity);
   return validities;
 }
 

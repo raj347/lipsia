@@ -33,41 +33,45 @@ static int rand_int(int n) {
   return rnd % n;
 }
 
-MriSvm::MriSvm( long int number_of_samples,
-                long int number_of_features, 
-                sample_features_array_type sample_features, 
-                vector<int> classes
+MriSvm::MriSvm(
+                sample_features_array_type  sample_features, 
+                vector<int>                 classes,
+                long int                    number_of_samples,
+                long int                    number_of_features
                ) : 
-                number_of_samples_(number_of_samples), 
-                number_of_features_(number_of_features), 
                 sample_features_(sample_features), 
-                classes_(classes) 
+                classes_(classes),
+                number_of_samples_(number_of_samples), 
+                number_of_features_(number_of_features),
+                all_data_prepared_(false)
 {
-  parameters_ = getDefaultParameters();
+  construct();
   //printConfiguration();
 }
 
-MriSvm::MriSvm( long int number_of_samples,
-                long int number_of_features, 
-                sample_features_array_type sample_features, 
-                vector<int> classes,
-                int svm_type,
-                int kernel_type
-               ) : 
-                number_of_samples_(number_of_samples), 
-                number_of_features_(number_of_features), 
-                sample_features_(sample_features), 
-                classes_(classes) 
-{
-  parameters_ = getDefaultParameters();
-  parameters_.svm_type    = svm_type;
-  parameters_.kernel_type = kernel_type;
-  printConfiguration();
-}
-
 MriSvm::~MriSvm() {
-
+  if (all_data_prepared_) {
+    for (int sample_index(0); sample_index < number_of_samples_; sample_index++) {
+      delete[] all_data_[sample_index].values;
+    }
+    
+    delete[] all_data_;
+  }
 }
+
+void MriSvm::construct() {
+  parameters_ = get_default_parameters();
+  all_data_   = new svm_node[number_of_samples_] ;
+}
+
+void MriSvm::set_svm_type(int svm_type) {
+    parameters_.svm_type = svm_type;
+}
+
+void MriSvm::set_svm_kernel_type(int svm_kernel_type) {
+    parameters_.kernel_type = svm_kernel_type;
+}
+
 
 void MriSvm::shuffle(int *array) {
   int j,tmp;
@@ -95,6 +99,8 @@ void MriSvm::printConfiguration() {
 }
 
 void MriSvm::scale() {
+  all_data_prepared_ = false;
+  
   for(long int feature_index(0); feature_index < number_of_features_; feature_index++) {
     // Find range of values of this feature
     double max = DBL_MIN;
@@ -119,24 +125,7 @@ void MriSvm::scale() {
   }
 }
 
-double MriSvm::cross_validate(int count, int leaveout) {
-  int number_of_trainings_samples = number_of_samples_ - leaveout;
-  
-  /* Sanity Checks */
-  if (number_of_trainings_samples < 2) {
-    cerr << "I need at least two trainings samples in cross validation." << endl;
-    exit(-1);
-  }
-  if (count < 1) {
-    cerr << "I need at least two cross validation rounds." << endl;
-    exit(-1);
-  }
-  
-  /* Seed random number generator */
-  srand(time(NULL));
-  /* Don't let libsvm print anything out */
-  svm_set_print_string_function(print_nothing);
-  
+void MriSvm::prepare_all_data() {
   /* Problem looks this way (e.g. with 6 samples and 3 features):
    * .l = 6
    *       _ _ _ _ _ _
@@ -159,20 +148,41 @@ double MriSvm::cross_validate(int count, int leaveout) {
    */
   
   /* Convert all data to libsvm-Format */
-  struct svm_node all_data[number_of_samples_];
   for (int sample_index(0); sample_index < number_of_samples_; sample_index++) {
-    all_data[sample_index].values  = (double *) calloc(number_of_features_,sizeof(double));
-    all_data[sample_index].dim     = number_of_features_;
+    all_data_[sample_index].values  = new double[number_of_features_];
+    all_data_[sample_index].dim     = number_of_features_;
+    
     for(long int feature_index(0); feature_index < number_of_features_; feature_index++) {
-      all_data[sample_index].values[feature_index] = sample_features_[sample_index][feature_index];
+      all_data_[sample_index].values[feature_index] = sample_features_[sample_index][feature_index];
     }
+    
   }
+  all_data_prepared_ = true;
+}
+
+double MriSvm::cross_validate(int count, int leaveout) {
+  int number_of_trainings_samples = number_of_samples_ - leaveout;
+  
+  /* Sanity Checks */
+  if (number_of_trainings_samples < 2) {
+    cerr << "I need at least two trainings samples in cross validation." << endl;
+    exit(-1);
+  }
+  if (count < 1) {
+    cerr << "I need at least two cross validation rounds." << endl;
+    exit(-1);
+  }
+  
+  /* Seed random number generator */
+  srand(time(NULL));
+  /* Don't let libsvm print anything out */
+  svm_set_print_string_function(print_nothing);
   
   /* Training Problem (will be a sub problem of all_data) */
   double training_classes[number_of_trainings_samples];
   struct svm_problem trainings_problem;
   trainings_problem.l = number_of_trainings_samples;
-  trainings_problem.x = (struct svm_node *) calloc(number_of_trainings_samples,sizeof(struct svm_node));
+  trainings_problem.x = new svm_node[number_of_trainings_samples];
   
   /* Array containing the indices of samples */
   int shuffle_indices[number_of_samples_];
@@ -186,9 +196,9 @@ double MriSvm::cross_validate(int count, int leaveout) {
    
     // Train SVM
     for(int trainings_index(0); trainings_index < number_of_trainings_samples;trainings_index++) {
-      int original_index = shuffle_indices[trainings_index];
+      int original_index                          = shuffle_indices[trainings_index];
       training_classes[trainings_index]           = classes_[original_index];
-      trainings_problem.x[trainings_index].values = all_data[original_index].values;
+      trainings_problem.x[trainings_index].values = all_data_[original_index].values;
       trainings_problem.x[trainings_index].dim    = number_of_features_;
     }
     
@@ -198,13 +208,15 @@ double MriSvm::cross_validate(int count, int leaveout) {
     // Predict
     for (int prediction_index = 0; prediction_index < leaveout; prediction_index++) {
       int original_index = shuffle_indices[number_of_trainings_samples + prediction_index];
-      double prediction = svm_predict(trained_model,&(all_data[original_index]));
+      double prediction = svm_predict(trained_model,&(all_data_[original_index]));
       if (prediction == classes_[original_index]) {
         total_correct++;
       }
     }
     
   }
+  delete[] trainings_problem.x;
+  
   return (double) total_correct / (double) (count * leaveout);
 }
 
@@ -239,7 +251,7 @@ void MriSvm::export_table(std::string file_name) {
 }
 
 
-struct svm_parameter MriSvm::getDefaultParameters() {
+struct svm_parameter MriSvm::get_default_parameters() {
   struct svm_parameter parameters;
 
   parameters.svm_type     = DEFAULT_MRISVM_SVM_TYPE;

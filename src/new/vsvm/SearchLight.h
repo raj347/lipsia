@@ -17,6 +17,8 @@
 #define DEFAULT_SEARCHLIGHT_SCALE_LOWER 0
 #define DEFAULT_SEARCHLIGHT_SCALE_UPPER 1
 #define DEFAULT_SEARCHLIGHT_RADIUS      3
+#define DEFAULT_SEARCHLIGHT_DO_SHOW_PROGRESS false
+
 
 #include "MriSvm.h"
 
@@ -49,15 +51,17 @@ public:
   virtual ~SearchLight();
   void printConfiguration();
   sample_validity_array_type calculate();
+  vector<sample_validity_array_type> calculate_permutations(int number_of_permutations);
   void scale();
 
 private:
-  vector<coords_3d> radius_pixels();
-  bool              is_voxel_zero(int,int,int);
-  bool              are_coordinates_valid(int,int,int);
-  double            cross_validate(int,int,int,vector<coords_3d>&);
-  struct svm_parameter getDefaultParameters();
-  void              scale_voxel_feature(int band, int row, int column,int feature);
+  vector<coords_3d>     radius_pixels();
+  bool                  is_voxel_zero(int,int,int);
+  bool                  are_coordinates_valid(int,int,int);
+  double                cross_validate(int,int,int,vector<coords_3d>&);
+  struct svm_parameter  getDefaultParameters();
+  void                  scale_voxel_feature(int band, int row, int column,int feature);
+  int                   prepare_for_mrisvm(sample_features_array_type &sample_features,int band, int row, int column,vector<coords_3d> &relative_coords);
 
   int      number_of_bands_;
   int      number_of_rows_;
@@ -71,7 +75,9 @@ private:
   int     svm_type_;
   int     svm_kernel_type_;
   
-  double extension_band_,extension_row_,extension_column_;
+  double  extension_band_,extension_row_,extension_column_;
+  
+  bool    do_show_progress;
 
 };
 

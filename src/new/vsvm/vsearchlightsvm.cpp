@@ -138,10 +138,10 @@ int main (int argc,char *argv[]) {
    *******************************************/
 
   int number_of_images = input_filenames.number;
-  vector<VImage> source_images[number_of_images];
+  vector<VImage> *source_images = new vector<VImage>[number_of_images]; // clang++ demands dynamical allocation of arrays of non-POD
 
-  long int number_of_features = 0;
-  int number_of_features_per_voxel = 0;
+  long int  number_of_features = 0;
+  int       number_of_features_per_voxel = 0;
   VAttrList attribute_list;
   
   cerr << "Reading Image Files" << endl;
@@ -200,8 +200,6 @@ int main (int argc,char *argv[]) {
     } else if (number_of_features_per_voxel != this_number_of_features_per_voxel) {
       VError("This file has a different number of images than previous files.");
     }
-
-
   }
 
   /*****************************
@@ -279,7 +277,6 @@ int main (int argc,char *argv[]) {
   VImage dest = VCreateImage(number_of_bands,number_of_rows,number_of_columns,VFloatRepn);
   VFillImage(dest,VAllBands,0);
   VCopyImageAttrs (source_images[0].front(), dest);
-  VSetAttr(VImageAttrList(dest),"modality",NULL,VStringRepn,"conimg");
 
   for(int band(0); band < number_of_bands; band++) {
     for(int row(0); row < number_of_rows; row++) {
@@ -293,5 +290,7 @@ int main (int argc,char *argv[]) {
   VAppendAttr(out_list,"image",NULL,VImageRepn,dest);
   VHistory(VNumber(program_options),program_options,argv[0],&attribute_list,&out_list);
   VWriteFile(out_file, out_list);
+  
+  delete[] source_images;
 }
 

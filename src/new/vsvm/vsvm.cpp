@@ -225,8 +225,15 @@ int main (int argc,char *argv[]) {
    ***************/
 
   // Initialise SVM 
-  MriSvm mrisvm(number_of_images,number_of_features,sample_features,classes,svm_type_parsed,svm_kernel_type_parsed);
+  MriSvm mrisvm(
+                sample_features,
+                classes,
+                number_of_images,
+                number_of_features
+               );
 
+  mrisvm.set_svm_type(svm_type_parsed);
+  mrisvm.set_svm_kernel_type(svm_kernel_type_parsed);
   // Scale features
   mrisvm.scale();
 
