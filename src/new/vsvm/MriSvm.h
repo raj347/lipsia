@@ -50,7 +50,7 @@ public:
   void    printConfiguration();
   void    scale();
   double  cross_validate(int count = DEFAULT_MRISVM_CROSS_VALIDATION_COUNT, int leaveout = DEFAULT_MRISVM_CROSS_VALIDATION_LEAVEOUT);
-  void    export_table(std::string file_name);
+  vector<double> combinations(int count,int leaveout);
 
   void    set_svm_type(int svm_type);
   void    set_svm_kernel_type(int svm_kernel_type);
@@ -58,18 +58,17 @@ public:
 
 private:
   void shuffle(int *array);
-  void construct();
-  void prepare_all_data();
+  void construct(sample_features_array_type  &sample_features);
+  void prepare_all_data(sample_features_array_type  &sample_features);
   struct svm_parameter get_default_parameters();
   
-  sample_features_array_type  sample_features_;
+  //sample_features_array_type  sample_features_;
   vector <int>                classes_;
   long int                    number_of_samples_;
   long int                    number_of_features_;
   struct svm_parameter        parameters_;
   struct svm_node             *all_data_;
   
-  bool                        all_data_prepared_;
 
 };
 

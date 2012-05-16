@@ -39,29 +39,86 @@ MriSvm::MriSvm(
                 long int                    number_of_samples,
                 long int                    number_of_features
                ) : 
-                sample_features_(sample_features), 
                 classes_(classes),
                 number_of_samples_(number_of_samples), 
-                number_of_features_(number_of_features),
-                all_data_prepared_(false)
+                number_of_features_(number_of_features)
 {
-  construct();
+  construct(sample_features);
   //printConfiguration();
 }
 
 MriSvm::~MriSvm() {
-  if (all_data_prepared_) {
-    for (int sample_index(0); sample_index < number_of_samples_; sample_index++) {
-      delete[] all_data_[sample_index].values;
+  for (int sample_index(0); sample_index < number_of_samples_; sample_index++) {
+    delete[] all_data_[sample_index].values;
+  }
+  
+  delete[] all_data_;
+}
+
+void MriSvm::construct(sample_features_array_type  &sample_features) {
+  parameters_ = get_default_parameters();
+  prepare_all_data(sample_features);
+}
+
+void MriSvm::prepare_all_data(sample_features_array_type  &sample_features) {
+  /* Problem looks this way (e.g. with 6 samples and 3 features):
+   * .l = 6
+   *       _ _ _ _ _ _
+   * .y = |_|_|_|_|_|_|
+   * 
+   *        _
+   * .x -> | |.dim = 3;   _ _ _
+   *       |_|.values -> |_|_|_|
+   *       | |.dim = 3;   _ _ _
+   *       |_|.values -> |_|_|_|
+   *       | |.dim = 3;   _ _ _
+   *       |_|.values -> |_|_|_|
+   *       | |.dim = 3;   _ _ _
+   *       |_|.values -> |_|_|_|
+   *       | |.dim = 3;   _ _ _
+   *       |_|.values -> |_|_|_|
+   *       | |.dim = 3;   _ _ _
+   *       |_|.values -> |_|_|_|
+   *       
+   */
+  all_data_   = new svm_node[number_of_samples_] ;
+  
+  /* Convert all data to libsvm-Format */
+  for (int sample_index(0); sample_index < number_of_samples_; sample_index++) {
+    all_data_[sample_index].values  = new double[number_of_features_];
+    all_data_[sample_index].dim     = number_of_features_;
+    
+    for(long int feature_index(0); feature_index < number_of_features_; feature_index++) {
+      all_data_[sample_index].values[feature_index] = sample_features[sample_index][feature_index];
     }
     
-    delete[] all_data_;
   }
 }
 
-void MriSvm::construct() {
-  parameters_ = get_default_parameters();
-  all_data_   = new svm_node[number_of_samples_] ;
+void MriSvm::scale() {
+  for(long int feature_index(0); feature_index < number_of_features_; feature_index++) {
+    // Find range of values of this feature
+    double max = DBL_MIN;
+    double min = DBL_MAX;
+    for (long int sample_index(0); sample_index < number_of_samples_; sample_index++) {
+      double x = all_data_[sample_index].values[feature_index];
+      if (x < min) {
+        min = x;
+      }
+      if (x > max) {
+        max = x;
+      }
+    }
+
+    // Scale
+    for (long int sample_index(0); sample_index < number_of_samples_; sample_index++) {
+      double x = all_data_[sample_index].values[feature_index];
+      double lower = DEFAULT_MRISVM_SCALE_LOWER;
+      double upper = DEFAULT_MRISVM_SCALE_UPPER;
+
+      all_data_[sample_index].values[feature_index] = lower + (upper - lower) * (x - min) / (max - min);
+    }
+  }
 }
 
 void MriSvm::set_svm_type(int svm_type) {
@@ -98,66 +155,12 @@ void MriSvm::printConfiguration() {
   cout << endl;
 }
 
-void MriSvm::scale() {
-  all_data_prepared_ = false;
+vector<double> MriSvm::combinations(int count,int leaveout) {
+  vector<double> validities;
   
-  for(long int feature_index(0); feature_index < number_of_features_; feature_index++) {
-    // Find range of values of this feature
-    double max = DBL_MIN;
-    double min = DBL_MAX;
-    for (long int sample_index(0); sample_index < number_of_samples_; sample_index++) {
-      if (sample_features_[sample_index][feature_index] < min) {
-        min = sample_features_[sample_index][feature_index];
-      }
-      if (sample_features_[sample_index][feature_index] > max) {
-        max = sample_features_[sample_index][feature_index];
-      }
-    }
-
-    // Scale
-    for (long int sample_index(0); sample_index < number_of_samples_; sample_index++) {
-      double x = sample_features_[sample_index][feature_index];
-      double lower = DEFAULT_MRISVM_SCALE_LOWER;
-      double upper = DEFAULT_MRISVM_SCALE_UPPER;
-
-      sample_features_[sample_index][feature_index] = lower + (upper - lower) * (x - min) / (max - min);
-    }
-  }
-}
-
-void MriSvm::prepare_all_data() {
-  /* Problem looks this way (e.g. with 6 samples and 3 features):
-   * .l = 6
-   *       _ _ _ _ _ _
-   * .y = |_|_|_|_|_|_|
-   * 
-   *        _
-   * .x -> | |.dim = 3;   _ _ _
-   *       |_|.values -> |_|_|_|
-   *       | |.dim = 3;   _ _ _
-   *       |_|.values -> |_|_|_|
-   *       | |.dim = 3;   _ _ _
-   *       |_|.values -> |_|_|_|
-   *       | |.dim = 3;   _ _ _
-   *       |_|.values -> |_|_|_|
-   *       | |.dim = 3;   _ _ _
-   *       |_|.values -> |_|_|_|
-   *       | |.dim = 3;   _ _ _
-   *       |_|.values -> |_|_|_|
-   *       
-   */
+  long long int total_number_of_combinations = boost::math::factorial(number_of_samples_)/(boost::math::factorial(2) * boost::math::factorial(2)) 
   
-  /* Convert all data to libsvm-Format */
-  for (int sample_index(0); sample_index < number_of_samples_; sample_index++) {
-    all_data_[sample_index].values  = new double[number_of_features_];
-    all_data_[sample_index].dim     = number_of_features_;
-    
-    for(long int feature_index(0); feature_index < number_of_features_; feature_index++) {
-      all_data_[sample_index].values[feature_index] = sample_features_[sample_index][feature_index];
-    }
-    
-  }
-  all_data_prepared_ = true;
+  return validities;
 }
 
 double MriSvm::cross_validate(int count, int leaveout) {
@@ -219,37 +222,6 @@ double MriSvm::cross_validate(int count, int leaveout) {
   
   return (double) total_correct / (double) (count * leaveout);
 }
-
-/* Export for R */
-void MriSvm::export_table(std::string file_name) {
-  ofstream table_file;
-  table_file.open(file_name.c_str());
-
-  //Header with sample names
-  table_file << "Sample";
-  for(int sample_index(0); sample_index < number_of_samples_; sample_index++) {
-    table_file << "\t" << sample_index;
-  }
-  table_file << endl;
-
-  // Classes
-  table_file << "Class";
-  for(int sample_index(0); sample_index < number_of_samples_; sample_index++) {
-    table_file << "\t" << classes_[sample_index];
-  }
-  table_file << endl;
-
-  // Features
-  for(int feature_index(0); feature_index < number_of_features_;feature_index++) {
-    table_file << "Feature " << feature_index;
-    for(int sample_index(0); sample_index < number_of_samples_; sample_index++) {
-      table_file << "\t" << sample_features_[sample_index][feature_index];
-    }
-    table_file << endl;
-  }
-  table_file.close();
-}
-
 
 struct svm_parameter MriSvm::get_default_parameters() {
   struct svm_parameter parameters;

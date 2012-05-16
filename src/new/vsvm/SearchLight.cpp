@@ -10,6 +10,7 @@
 
 #include <boost/foreach.hpp>
 #include <boost/progress.hpp>
+#include <boost/math/special_functions/factorials.hpp>
 
 #include "SearchLight.h"
 
