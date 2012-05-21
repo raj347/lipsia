@@ -155,15 +155,27 @@ void MriSvm::printConfiguration() {
   cout << endl;
 }
 
-vector<double> MriSvm::combinations(int count,int leaveout) {
+/**
+ * 
+ * @param permutation_count number of permutations
+ * @param leaveout number of samples to be left out in cross validation
+ * 
+ * @return list of @count searchlightsvms at this position
+ */
+
+vector<double> MriSvm::combinations(int permutation_count,int leaveout) {
   vector<double> validities;
   
-  long long int total_number_of_combinations = boost::math::factorial(number_of_samples_)/(boost::math::factorial(2) * boost::math::factorial(2)) 
+  
+  for (int permutation_loop(0); permutation_loop < count; permutation_loop++) {
+    
+  }
+  
   
   return validities;
 }
 
-double MriSvm::cross_validate(int count, int leaveout) {
+double MriSvm::cross_validate(int leaveout) {
   int number_of_trainings_samples = number_of_samples_ - leaveout;
   
   /* Sanity Checks */
@@ -171,56 +183,53 @@ double MriSvm::cross_validate(int count, int leaveout) {
     cerr << "I need at least two trainings samples in cross validation." << endl;
     exit(-1);
   }
-  if (count < 1) {
-    cerr << "I need at least two cross validation rounds." << endl;
+  if (leaveout == number_of_samples_) {
+    cerr << "I need at least some training data." << endl;
     exit(-1);
   }
   
-  /* Seed random number generator */
-  srand(time(NULL));
   /* Don't let libsvm print anything out */
   svm_set_print_string_function(print_nothing);
   
   /* Training Problem (will be a sub problem of all_data) */
-  double training_classes[number_of_trainings_samples];
+  double training_classes[number_of_samples_];
   struct svm_problem trainings_problem;
-  trainings_problem.l = number_of_trainings_samples;
-  trainings_problem.x = new svm_node[number_of_trainings_samples];
+  trainings_problem.x = new svm_node[number_of_samples_];
+  trainings_problem.y = training_classes;
   
-  /* Array containing the indices of samples */
-  int shuffle_indices[number_of_samples_];
-  for (int sample_index(0); sample_index < number_of_samples_; sample_index++) {
-    shuffle_indices[sample_index] = sample_index;
-  }
-
   int total_correct = 0;
+  
+  // Calculate number of shuffles
+  int count = number_of_samples_ / leaveout;
+  if ((number_of_samples_ % leaveout) != 0)
+    count++;
+  
   for(int cross_validation_loop(0); cross_validation_loop < count; cross_validation_loop++) {
-    shuffle(shuffle_indices);
-   
-    // Train SVM
-    for(int trainings_index(0); trainings_index < number_of_trainings_samples;trainings_index++) {
-      int original_index                          = shuffle_indices[trainings_index];
-      training_classes[trainings_index]           = classes_[original_index];
-      trainings_problem.x[trainings_index].values = all_data_[original_index].values;
-      trainings_problem.x[trainings_index].dim    = number_of_features_;
+    int trainings_index = 0;
+    for(int trainings_loop(0); trainings_loop < number_of_samples_;trainings_loop++) {
+      if ((trainings_loop % count) != cross_validation_loop) {
+        training_classes[trainings_index]           = classes_[trainings_loop];
+        trainings_problem.x[trainings_index].values = all_data_[trainings_loop].values;
+        trainings_problem.x[trainings_index].dim    = number_of_features_;
+        trainings_index++;
+      }
     }
+    trainings_problem.l = trainings_index;    
     
-    trainings_problem.y = training_classes;
+    // Train SVM
     struct svm_model *trained_model = svm_train(&trainings_problem,&parameters_);
     
     // Predict
-    for (int prediction_index = 0; prediction_index < leaveout; prediction_index++) {
-      int original_index = shuffle_indices[number_of_trainings_samples + prediction_index];
-      double prediction = svm_predict(trained_model,&(all_data_[original_index]));
-      if (prediction == classes_[original_index]) {
+    for (int prediction_index = cross_validation_loop; prediction_index < number_of_samples_; prediction_index += count) {
+      double prediction = svm_predict(trained_model,&(all_data_[prediction_index]));
+      if (prediction == classes_[prediction_index]) {
         total_correct++;
       }
     }
-    
   }
   delete[] trainings_problem.x;
   
-  return (double) total_correct / (double) (count * leaveout);
+  return (double) total_correct / (double) (number_of_samples_);
 }
 
 struct svm_parameter MriSvm::get_default_parameters() {

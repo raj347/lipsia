@@ -152,7 +152,7 @@ double SearchLight::cross_validate(int band, int row, int column,vector<coords_3
                 feature_number
                );
   
-  return(mrisvm.cross_validate(5,2));
+  return(mrisvm.cross_validate(2));
 }
 
 /*

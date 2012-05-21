@@ -239,7 +239,7 @@ int main (int argc,char *argv[]) {
 
   // Validate
   cerr << "Cross validating" << endl;
-  double validity = mrisvm.cross_validate(10,2);
+  double validity = mrisvm.cross_validate(2);
   cerr << "Cross Validation Accuracy = " << 100.0*validity << endl; 
 
   // Export

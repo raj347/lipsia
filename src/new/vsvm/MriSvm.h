@@ -49,8 +49,8 @@ public:
   
   void    printConfiguration();
   void    scale();
-  double  cross_validate(int count = DEFAULT_MRISVM_CROSS_VALIDATION_COUNT, int leaveout = DEFAULT_MRISVM_CROSS_VALIDATION_LEAVEOUT);
-  vector<double> combinations(int count,int leaveout);
+  double  cross_validate(int leaveout = DEFAULT_MRISVM_CROSS_VALIDATION_LEAVEOUT);
+  vector<double> combinations(int permutation_count,int leaveout);
 
   void    set_svm_type(int svm_type);
   void    set_svm_kernel_type(int svm_kernel_type);
