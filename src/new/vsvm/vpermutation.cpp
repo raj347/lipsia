@@ -99,7 +99,6 @@ int parseSvmKernelType(VString svm_kernel_type) {
 
 }
 
-
 int main (int argc,char *argv[]) {
   /**************************
    * Initialise Vista Stuff *
@@ -118,6 +117,7 @@ int main (int argc,char *argv[]) {
   VString           svm_kernel_type = NULL;
   VDouble           radius          = DEFAULT_SEARCHLIGHT_RADIUS;
   VBoolean          do_scale        = false;
+  VShort            number_of_permutations = 1;
 
   FILE *out_file;
 
@@ -128,7 +128,8 @@ int main (int argc,char *argv[]) {
     {"C",           VDoubleRepn,  1, &svm_C,           VOptionalOpt, NULL, "SVM C parameter" },
     {"radius",      VDoubleRepn,  1, &radius,          VOptionalOpt, NULL, "Searchlight Radius (in mm)" },
     {"scale",       VBooleanRepn, 1, &do_scale,        VOptionalOpt, NULL, "Whether to scale data"},
-    {"gamma",       VDoubleRepn,  1, &svm_gamma,       VOptionalOpt, NULL, "SVM gamma parameter" }
+    {"gamma",       VDoubleRepn,  1, &svm_gamma,       VOptionalOpt, NULL, "SVM gamma parameter" },
+    {"p",           VShortRepn,   1, &number_of_permutations,       VOptionalOpt, NULL, "Number of Permutations" }
   };
   VParseFilterCmd(VNumber (program_options),program_options,argc,argv,NULL,&out_file);
 
@@ -140,8 +141,8 @@ int main (int argc,char *argv[]) {
    * Read image files and extract image data *
    *******************************************/
 
-  int number_of_images = input_filenames.number;
-  vector<VImage> source_images[number_of_images];
+  int number_of_samples = input_filenames.number;
+  vector<VImage> source_images[number_of_samples];
 
   long int number_of_features = 0;
   int number_of_features_per_voxel = 0;
@@ -149,8 +150,8 @@ int main (int argc,char *argv[]) {
   
   cerr << "Reading Image Files" << endl;
 
-  boost::progress_display file_progress(number_of_images);
-  for(int i(0); i < number_of_images; i++) {
+  boost::progress_display file_progress(number_of_samples);
+  for(int i(0); i < number_of_samples; i++) {
     ++file_progress;
 
     /*******************
@@ -215,12 +216,12 @@ int main (int argc,char *argv[]) {
   int number_of_rows    = VImageNRows(source_images[0].front());
   int number_of_columns = VImageNColumns(source_images[0].front());
 
-  sample_3d_array_type sample_features(boost::extents[number_of_images][number_of_bands][number_of_rows][number_of_columns][number_of_features_per_voxel]);
-  vector <int> classes(number_of_images);
+  sample_3d_array_type sample_features(boost::extents[number_of_samples][number_of_bands][number_of_rows][number_of_columns][number_of_features_per_voxel]);
+  vector <int> classes(number_of_samples);
 
   cerr << "Converting Data into SearchLightSvm Format" << endl;
-  boost::progress_display convert_progress(number_of_images);
-  for(int sample_index(0); sample_index < number_of_images; sample_index++) {
+  boost::progress_display convert_progress(number_of_samples);
+  for(int sample_index(0); sample_index < number_of_samples; sample_index++) {
     ++convert_progress;
     long image_class = DEFAULT_VSVM_IMAGE_CLASS;
 
@@ -260,7 +261,21 @@ int main (int argc,char *argv[]) {
    * Conduct Searchlight SVM *
    ***************************/
 
-  SearchLight sl(number_of_bands,number_of_rows,number_of_columns,number_of_images,number_of_features_per_voxel,sample_features,classes,radius,svm_type_parsed,svm_kernel_type_parsed,extension_band,extension_row,extension_column);
+  //int number_of_permutations = 30;
+  cerr << "Number of permutations: " << number_of_permutations << endl;
+  permutated_validities_type permutated_validities(boost::extents[number_of_permutations][number_of_bands][number_of_rows][number_of_columns]);
+  
+  SearchLight sl(number_of_bands,
+                 number_of_rows,
+                 number_of_columns,
+                 number_of_samples,
+                 number_of_features_per_voxel,
+                 sample_features,
+                 classes,
+                 radius,
+                 extension_band,
+                 extension_row,
+                 extension_column);
   /* Measure time */
   struct timespec start,end;
   clock_gettime(CLOCK_MONOTONIC,&start);
@@ -269,7 +284,7 @@ int main (int argc,char *argv[]) {
     sl.scale();
   }
 
-  vector<sample_validity_array_type> validities = sl.calculate_permutations(10000);
+  sl.calculate_permutations(permutated_validities,number_of_permutations);
   clock_gettime(CLOCK_MONOTONIC,&end);
   long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
   cout << "Execution time: " << execution_time / 1e9 << "s" << endl;
@@ -278,27 +293,26 @@ int main (int argc,char *argv[]) {
   /*******************************
    * Save result into vista file *
    *******************************/
+ 
+  VAttrList out_list = VCreateAttrList();
+  VHistory(VNumber(program_options),program_options,argv[0],&attribute_list,&out_list);
   
-  cerr << "Saving validities to one vista file" << endl;
-  BOOST_FOREACH(sample_validity_array_type validity, validities) {
+  for(int permutation_loop(0); permutation_loop < number_of_permutations; permutation_loop++) {
     VImage dest = VCreateImage(number_of_bands,number_of_rows,number_of_columns,VFloatRepn);
     VFillImage(dest,VAllBands,0);
-    VCopyImageAttrs(source_images[0].front(), dest);
+    VCopyImageAttrs (source_images[0].front(), dest);
     
     for(int band(0); band < number_of_bands; band++) {
       for(int row(0); row < number_of_rows; row++) {
         for(int column(0); column < number_of_columns; column++) {
-          VPixel(dest,band,row,column,VFloat) = validities[band][row][column];
+          VPixel(dest,band,row,column,VFloat) = permutated_validities[permutation_loop][band][row][column];
         }
       }
     }
     VSetAttr(VImageAttrList(dest),"name",NULL,VStringRepn,"SearchlightSVM");
-    VAttrList out_list = VCreateAttrList();
     VAppendAttr(out_list,"image",NULL,VImageRepn,dest);
   }
   
-  VHistory(VNumber(program_options),program_options,argv[0],&attribute_list,&out_list);
   VWriteFile(out_file, out_list);
-
 }
 

@@ -20,6 +20,7 @@
 #define DEFAULT_SEARCHLIGHT_DO_SHOW_PROGRESS false
 
 
+#include "MriTypes.h"
 #include "MriSvm.h"
 
 #define _DENSE_REP
@@ -27,34 +28,30 @@
 
 using std::vector;
 
-typedef boost::multi_array<double, 5> sample_3d_array_type; // sample,band,row,column,feature
-typedef boost::multi_array<double, 3> sample_validity_array_type;
-typedef boost::array<int,3>           coords_3d;
 
 class SearchLight {
 public:
-  SearchLight(int number_of_bands, 
-      int number_of_rows, 
-      int number_of_columns, 
-      int number_of_samples, 
-      int number_of_features_per_voxel,
-      sample_3d_array_type sample_features, 
-      vector<int> classes,
-      double radius,
-      int svm_type,
-      int svm_kernel_type,
-      double extension_band,
-      double extension_row,
-      double extension_column
+  SearchLight(int number_of_bands,
+              int number_of_rows,
+              int number_of_columns,
+              int number_of_samples,
+              int number_of_features_per_voxel,
+              sample_3d_array_type sample_features,
+              vector<int> classes,
+              double radius,
+              double extension_band,
+              double extension_row,
+              double extension_column
       );
 
   virtual ~SearchLight();
   void printConfiguration();
   sample_validity_array_type calculate();
-  vector<sample_validity_array_type> calculate_permutations(int number_of_permutations);
+  void calculate_permutations(permutated_validities_type &permutated_validities, int number_of_permutations);
   void scale();
 
 private:
+  void shuffle(int *array);
   vector<coords_3d>     radius_pixels();
   bool                  is_voxel_zero(int,int,int);
   bool                  are_coordinates_valid(int,int,int);
@@ -62,6 +59,13 @@ private:
   struct svm_parameter  getDefaultParameters();
   void                  scale_voxel_feature(int band, int row, int column,int feature);
   int                   prepare_for_mrisvm(sample_features_array_type &sample_features,int band, int row, int column,vector<coords_3d> &relative_coords);
+  void                  cross_validate_permutations(permutated_validities_type &permutated_validities,
+                                                    int number_of_permutations,
+                                                    permutations_array_type &permutations,
+                                                    int band, 
+                                                    int row, 
+                                                    int column,
+                                                    vector<coords_3d> &relative_coords);
 
   int      number_of_bands_;
   int      number_of_rows_;

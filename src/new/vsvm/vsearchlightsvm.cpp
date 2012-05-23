@@ -255,7 +255,18 @@ int main (int argc,char *argv[]) {
    * Conduct Searchlight SVM *
    ***************************/
 
-  SearchLight sl(number_of_bands,number_of_rows,number_of_columns,number_of_images,number_of_features_per_voxel,sample_features,classes,radius,svm_type_parsed,svm_kernel_type_parsed,extension_band,extension_row,extension_column);
+  SearchLight sl(number_of_bands,
+                 number_of_rows,
+                 number_of_columns,
+                 number_of_images,
+                 number_of_features_per_voxel,
+                 sample_features,
+                 classes,
+                 radius,
+                 extension_band,
+                 extension_row,
+                 extension_column);
+  
   /* Measure time */
   struct timespec start,end;
   clock_gettime(CLOCK_MONOTONIC,&start);

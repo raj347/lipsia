@@ -23,6 +23,27 @@ using std::cerr;
 using std::cout;
 using std::endl;
 
+/**************************
+ * Some necessary C stuff *
+ **************************/
+
+/*
+ * Get a random int
+ */
+
+static int rand_int(int n) {
+  int limit = RAND_MAX - RAND_MAX % n;
+  int rnd;
+  
+  do {
+    rnd = rand();
+  } while (rnd >= limit);
+  return rnd % n;
+}
+
+/***************
+ * Searchlight *
+ ***************/
 SearchLight::SearchLight(int number_of_bands, 
                          int number_of_rows, 
                          int number_of_columns, 
@@ -31,8 +52,6 @@ SearchLight::SearchLight(int number_of_bands,
                          sample_3d_array_type sample_features, 
                          vector<int> classes,
                          double radius,
-                         int svm_type,
-                         int svm_kernel_type,
                          double extension_band,
                          double extension_row,
                          double extension_column
@@ -45,8 +64,6 @@ SearchLight::SearchLight(int number_of_bands,
                 sample_features_(sample_features),
                 classes_(classes),
                 radius_(radius),
-                svm_type_(svm_type),
-                svm_kernel_type_(svm_kernel_type),
                 extension_band_(extension_band),
                 extension_row_(extension_row),
                 extension_column_(extension_column),
@@ -155,6 +172,31 @@ double SearchLight::cross_validate(int band, int row, int column,vector<coords_3
   return(mrisvm.cross_validate(2));
 }
 
+void SearchLight::cross_validate_permutations(permutated_validities_type  &permutated_validities,
+                                              int                         number_of_permutations,
+                                              permutations_array_type     &permutations,
+                                              int                         band,
+                                              int                         row, 
+                                              int                         column,
+                                              vector<coords_3d>           &relative_coords) {
+  int leaveout = 2;
+  
+  int number_of_features = relative_coords.size() * number_of_features_per_voxel_;
+  
+  sample_features_array_type sample_features(boost::extents[number_of_samples_][number_of_features]);
+  
+  int feature_number = prepare_for_mrisvm(sample_features,band,row,column,relative_coords);
+  MriSvm mrisvm(
+                sample_features,
+                classes_,
+                number_of_samples_,
+                feature_number
+               );
+  
+  mrisvm.Permutate(permutated_validities,number_of_permutations,permutations,leaveout,band,row,column);
+  return;
+}
+
 /*
  * Calculates cross validation accuracy for all voxels
  */
@@ -189,19 +231,54 @@ sample_validity_array_type SearchLight::calculate() {
   return validities;
 }
 
-vector<sample_validity_array_type> SearchLight::calculate_permutations(int number_of_permutations) {
+void SearchLight::shuffle(int *array) {
+  int j,tmp;
+  
+  for (int sample_index(number_of_samples_ - 1); sample_index > 0; sample_index--) {
+    j = rand_int(sample_index + 1);
+    tmp = array[j];
+    array[j] = array[sample_index];
+    array[sample_index] = tmp;
+  }
+  
+}
+
+void SearchLight::calculate_permutations(permutated_validities_type &permutated_validities,int number_of_permutations) {
   cerr << "Calculating SearchLight Permutations" << endl;
   // Find relative coordinates of pixels within radius
   vector<coords_3d> relative_coords = radius_pixels();
 
   cerr << "Contains " << relative_coords.size() << " voxels " << endl;
 
-  sample_validity_array_type validity(boost::extents[number_of_bands_][number_of_rows_][number_of_columns_]);
+  /*******************************************************************************
+   * Generate all permutations at once (in preparation for later paralized work) *
+   *******************************************************************************/
+  
+  cerr << "Generating " << number_of_permutations << " permutations of the sample vector." << endl;
+  permutations_array_type permutations(boost::extents[number_of_permutations][number_of_samples_]);
+  int *shuffle_index = new int[number_of_samples_];
+  
+  for (int sample_loop(0); sample_loop < number_of_samples_; sample_loop++) {
+    shuffle_index[sample_loop] = sample_loop;
+  }
+  
+  boost::progress_display permutation_show_progress(number_of_permutations);
+  for (int permutation_loop(0); permutation_loop < number_of_permutations; permutation_loop++) {
+    ++permutation_show_progress;
+    // permutate the original array
+    shuffle(shuffle_index);
+    // fill it into the permutation array
+    for (int sample_loop(0); sample_loop < number_of_samples_; sample_loop++) {
+      permutations[permutation_loop][sample_loop] = shuffle_index[sample_loop];
+    }
+  }
+  delete[] shuffle_index;
+  
 
   // Walk through all voxels of the image data
   boost::progress_display show_progress(number_of_bands_ * number_of_rows_);
 
-#pragma omp parallel for default(none) shared(validity,show_progress) firstprivate(relative_coords) schedule(dynamic)
+#pragma omp parallel for default(none) shared(permutated_validities,permutations,number_of_permutations,show_progress) firstprivate(relative_coords) schedule(dynamic)
   for(int band = 0; band < number_of_bands_; band++) {
     for(int row(0); row < number_of_rows_; row++) {
 #pragma omp critical
@@ -210,16 +287,18 @@ vector<sample_validity_array_type> SearchLight::calculate_permutations(int numbe
         // Check if this is an actual brain pixel
         if (!(is_voxel_zero(band,row,column))) {
           // Put stuff into feature fector, to SVM
-          validity[band][row][column] = cross_validate(band,row,column,relative_coords);
+          cross_validate_permutations(permutated_validities, number_of_permutations, permutations, band ,row,column,relative_coords);
         } else {
-          validity[band][row][column] = 0.0;
+          for (int permutation_loop(0); permutation_loop < number_of_permutations; permutation_loop++) {
+            permutated_validities[permutation_loop][band][row][column] = 0.0;
+          }
+          
         }
       }
     }
   }
-  vector<sample_validity_array_type> validities;
-  validities.push_back(validity);
-  return validities;
+  
+  return;
 }
 
 /*

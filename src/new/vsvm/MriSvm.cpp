@@ -17,20 +17,14 @@ using std::cerr;
 using std::cout;
 using std::endl;
 
+/*
+ * To silence libsvm
+ * 
+ */
+
 static void print_nothing(const char *s)
 {
 
-}
-
-
-static int rand_int(int n) {
-  int limit = RAND_MAX - RAND_MAX % n;
-  int rnd;
-  
-  do {
-    rnd = rand();
-  } while (rnd >= limit);
-  return rnd % n;
 }
 
 MriSvm::MriSvm(
@@ -130,18 +124,6 @@ void MriSvm::set_svm_kernel_type(int svm_kernel_type) {
 }
 
 
-void MriSvm::shuffle(int *array) {
-  int j,tmp;
-  
-  for (int sample_index(number_of_samples_ - 1); sample_index > 0; sample_index--) {
-    j = rand_int(sample_index + 1);
-    tmp = array[j];
-    array[j] = array[sample_index];
-    array[sample_index] = tmp;
-  }
-  
-}
-
 void MriSvm::printConfiguration() {
   cout << "MriSvm configuration" << endl;
   cout << "number_of_samples="  << number_of_samples_ << endl;
@@ -163,28 +145,42 @@ void MriSvm::printConfiguration() {
  * @return list of @count searchlightsvms at this position
  */
 
-vector<double> MriSvm::combinations(int permutation_count,int leaveout) {
-  vector<double> validities;
+void MriSvm::Permutate(permutated_validities_type &permutated_validities, 
+                          int number_of_permutations,
+                          permutations_array_type &permutations,
+                          int leaveout,
+                          int band, 
+                          int row, 
+                          int column) {
   
+  struct svm_node *data_base = new svm_node[number_of_samples_];
   
-  for (int permutation_loop(0); permutation_loop < count; permutation_loop++) {
+  for (int permutation_loop(0); permutation_loop < number_of_permutations; permutation_loop++) {
+    // Set up a SVM problem with original classes but permutated samples
+    for (int sample_loop(0); sample_loop < number_of_samples_; sample_loop++) {
+      int shuffled_index = permutations[permutation_loop][sample_loop];
+      
+      data_base[sample_loop].values = all_data_[shuffled_index].values;
+      data_base[sample_loop].dim    = number_of_features_;
+    }
     
+    // Calculate validity
+    permutated_validities[permutation_loop][band][row][column] = cross_validate(leaveout,data_base);
   }
   
+  delete[] data_base;
   
-  return validities;
+  return;
 }
 
 double MriSvm::cross_validate(int leaveout) {
-  int number_of_trainings_samples = number_of_samples_ - leaveout;
-  
-  /* Sanity Checks */
-  if (number_of_trainings_samples < 2) {
+  return cross_validate(leaveout,all_data_);
+}
+
+double MriSvm::cross_validate(int leaveout,struct svm_node *data_base) {
+  /* Sanity Check */
+  if ((number_of_samples_ - leaveout) < 2) {
     cerr << "I need at least two trainings samples in cross validation." << endl;
-    exit(-1);
-  }
-  if (leaveout == number_of_samples_) {
-    cerr << "I need at least some training data." << endl;
     exit(-1);
   }
   
@@ -205,27 +201,29 @@ double MriSvm::cross_validate(int leaveout) {
     count++;
   
   for(int cross_validation_loop(0); cross_validation_loop < count; cross_validation_loop++) {
-    int trainings_index = 0;
+    volatile int trainings_index = 0;
     for(int trainings_loop(0); trainings_loop < number_of_samples_;trainings_loop++) {
       if ((trainings_loop % count) != cross_validation_loop) {
         training_classes[trainings_index]           = classes_[trainings_loop];
-        trainings_problem.x[trainings_index].values = all_data_[trainings_loop].values;
+        trainings_problem.x[trainings_index].values = data_base[trainings_loop].values;
         trainings_problem.x[trainings_index].dim    = number_of_features_;
         trainings_index++;
       }
     }
-    trainings_problem.l = trainings_index;    
+    trainings_problem.l = trainings_index;
     
     // Train SVM
     struct svm_model *trained_model = svm_train(&trainings_problem,&parameters_);
     
     // Predict
     for (int prediction_index = cross_validation_loop; prediction_index < number_of_samples_; prediction_index += count) {
-      double prediction = svm_predict(trained_model,&(all_data_[prediction_index]));
+      double prediction = svm_predict(trained_model,&(data_base[prediction_index]));
       if (prediction == classes_[prediction_index]) {
         total_correct++;
       }
     }
+    /* Free all that unnecessary stuff */
+    svm_free_and_destroy_model(&trained_model);
   }
   delete[] trainings_problem.x;
   
