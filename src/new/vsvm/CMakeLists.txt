@@ -2,7 +2,7 @@ PROJECT(vsvm)
 
 ADD_EXECUTABLE(vsvm vsvm.cpp MriSvm.cpp libsvm-dense/svm.o)
 ADD_EXECUTABLE(vsearchlightsvm vsearchlightsvm.cpp MriSvm.cpp SearchLight.cpp libsvm-dense/svm.o)
-ADD_EXECUTABLE(vpermutation vpermutation.cpp MriSvm.cpp SearchLight.cpp libsvm-dense/svm.cpp)
+ADD_EXECUTABLE(vpermutation vpermutation.cpp MriSvm.cpp SearchLight.cpp libsvm-dense/svm.cpp md5.cpp)
 
 TARGET_LINK_LIBRARIES(vsvm ${VIAIO_LIBRARY}  ${LIPSIA_LIBRARY}
     ${GSL_GSL_LIBRARY} ${GSL_CBLAS_LIBRARY})

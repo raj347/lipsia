@@ -27,11 +27,12 @@
 #define _DENSE_REP
 #include "libsvm-dense/svm.h"
 
+#include "MriTypes.h"
+#include "SearchLight.h"
+
 using std::vector;
 
 
-typedef boost::multi_array<double, 2> sample_features_array_type;
-typedef sample_features_array_type::index sample_features_array_type_index;
 
 class MriSvm {
 public:
@@ -49,15 +50,21 @@ public:
   
   void    printConfiguration();
   void    scale();
-  double  cross_validate(int leaveout = DEFAULT_MRISVM_CROSS_VALIDATION_LEAVEOUT);
-  vector<double> combinations(int permutation_count,int leaveout);
+  float   cross_validate(int leaveout = DEFAULT_MRISVM_CROSS_VALIDATION_LEAVEOUT);
+  float   cross_validate(int leaveout,struct svm_node *all_data);
+  void    Permutate(permutated_validities_type &permutated_validities,
+                       int number_of_permutations,
+                       permutations_array_type &permutations,
+                       int leaveout,
+                       int band, 
+                       int row, 
+                       int column); // FIXME MriSVM should not be aware of coordinates
 
   void    set_svm_type(int svm_type);
   void    set_svm_kernel_type(int svm_kernel_type);
 
 
 private:
-  void shuffle(int *array);
   void construct(sample_features_array_type  &sample_features);
   void prepare_all_data(sample_features_array_type  &sample_features);
   struct svm_parameter get_default_parameters();

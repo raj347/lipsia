@@ -31,6 +31,12 @@ using std::vector;
 
 class SearchLight {
 public:
+  // Types
+  struct PermutationsReturn {
+    permutations_array_type permutations;
+    int                     number_of_permutations;
+  };
+  // Methods
   SearchLight(int number_of_bands,
               int number_of_rows,
               int number_of_columns,
@@ -47,11 +53,22 @@ public:
   virtual ~SearchLight();
   void printConfiguration();
   sample_validity_array_type calculate();
-  void calculate_permutations(permutated_validities_type &permutated_validities, int number_of_permutations);
+  PermutationsReturn calculate_permutations(permutated_validities_type &permutated_validities, int number_of_permutations);
   void scale();
+  
+  
 
 private:
   void shuffle(int *array);
+  //int generate_permutations(int max_number_of_permutations,permutations_array_type &permutations);
+  //int generate_permutations_fixed(int max_number_of_permutations,permutations_array_type &permutations);
+  int generate_permutations_random(int max_number_of_permutations,permutations_array_type &permutations);
+  int generate_permutations_deterministic(int max_number_of_permutations,permutations_array_type &permutations);
+  int generate_permutations_filtered(int max_number_of_permutations,permutations_array_type &permutations,int leaveout);
+  int generate_permutations_minimal(int max_number_of_permutations, permutations_array_type &permutations);
+  
+  void PrintPermutations(int number_of_permutations,permutations_array_type &permutations);
+  
   vector<coords_3d>     radius_pixels();
   bool                  is_voxel_zero(int,int,int);
   bool                  are_coordinates_valid(int,int,int);

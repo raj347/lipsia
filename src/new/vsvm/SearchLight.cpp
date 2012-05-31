@@ -7,15 +7,24 @@
 
 #include <iostream>
 #include <fstream>
+#include <algorithm>
+
+#include <stdio.h>
 
 #include <boost/foreach.hpp>
 #include <boost/progress.hpp>
 #include <boost/math/special_functions/factorials.hpp>
 
+// GSL
+#include <gsl/gsl_rng.h>
+#include <gsl/gsl_randist.h>
+#include <gsl/gsl_permutation.h>
+     
 #include "SearchLight.h"
 
 #ifdef _OPENMP
 #include <omp.h>
+#include <boost/concept_check.hpp>
 #endif /*_OPENMP*/
 
 using std::ofstream;
@@ -70,7 +79,7 @@ SearchLight::SearchLight(int number_of_bands,
                 do_show_progress(DEFAULT_SEARCHLIGHT_DO_SHOW_PROGRESS)
 
 {
-  //printConfiguration();
+  printConfiguration();
 }
 
 SearchLight::~SearchLight() {
@@ -78,13 +87,18 @@ SearchLight::~SearchLight() {
 }
 
 void SearchLight::printConfiguration() {
-  cout << "SearchLight configuration" << endl;
-  cout << "number_of_bands="    << number_of_bands_   << endl;
-  cout << "number_of_rows="     << number_of_rows_    << endl;
-  cout << "number_of_columns="  << number_of_columns_ << endl;
-  cout << "number_of_samples="  << number_of_samples_ << endl;
-  cout << "feature_dimension="  << number_of_features_per_voxel_ << endl;
-  cout << "radius="             << radius_            << endl;
+  cerr << "SearchLight configuration" << endl;
+  cerr << "number_of_bands="    << number_of_bands_   << endl;
+  cerr << "number_of_rows="     << number_of_rows_    << endl;
+  cerr << "number_of_columns="  << number_of_columns_ << endl;
+  cerr << "number_of_samples="  << number_of_samples_ << endl;
+  cerr << "feature_dimension="  << number_of_features_per_voxel_ << endl;
+  cerr << "radius="             << radius_            << endl;
+  cerr << "Classes:"                                  << endl;
+  for(int sample_loop(0); sample_loop < number_of_samples_; sample_loop++) {
+    cerr << classes_[sample_loop] << "\t";
+  }
+  cerr << endl;
 }
 
 /*
@@ -212,10 +226,10 @@ sample_validity_array_type SearchLight::calculate() {
   // Walk through all voxels of the image data
   boost::progress_display show_progress(number_of_bands_ * number_of_rows_);
 
-#pragma omp parallel for default(none) shared(validities,show_progress) firstprivate(relative_coords) schedule(dynamic)
+//#pragma omp parallel for default(none) shared(validities,show_progress) firstprivate(relative_coords) schedule(dynamic)
   for(int band = 0; band < number_of_bands_; band++) {
     for(int row(0); row < number_of_rows_; row++) {
-#pragma omp critical
+//#pragma omp critical
      ++show_progress;
       for(int column(0); column < number_of_columns_; column++) {
         // Check if this is an actual brain pixel
@@ -243,7 +257,132 @@ void SearchLight::shuffle(int *array) {
   
 }
 
-void SearchLight::calculate_permutations(permutated_validities_type &permutated_validities,int number_of_permutations) {
+/*
+int SearchLight::generate_permutations(int max_number_of_permutations,permutations_array_type &permutations) {
+  cerr << max_number_of_permutations << " requested. Let me see, what I can do." << endl;
+  // 13 samples already give 6 billion possible permutations, which is plenty
+  if (number_of_samples_ >= 13) {
+    cerr << "Generating permutations randomly, because we have plenty of permutations available." << endl;
+    return(generate_permutations_random(max_number_of_permutations,permutations));
+  }
+  
+  double number_of_possible_permutations = boost::math::factorial<double>(number_of_samples_);
+  cerr << "We have " << number_of_possible_permutations << " real permutations available." << endl;
+  if ((max_number_of_permutations * 2) > number_of_possible_permutations) {
+    cerr << "Warning, the number of possible permutations is quite low, I will determine all possible permutations" << endl;
+    return(generate_permutations_deterministic(max_number_of_permutations,permutations));
+  }
+
+  cerr << "Generating permutations randomly" << endl;
+  return(generate_permutations_random(max_number_of_permutations,permutations));
+}
+*/
+
+int SearchLight::generate_permutations_filtered(int max_number_of_permutations,permutations_array_type &permutations,int leaveout) {
+  // I use number_of_samples as base
+  int base = number_of_samples_;
+  int count = number_of_samples_ / leaveout;
+  
+  if ((number_of_samples_ % leaveout) != 0)
+    count++;
+ 
+  int new_number_of_permutations = 0;
+
+  cerr << "Filtering permutations" << endl;
+  boost::progress_display show_progress(max_number_of_permutations);
+  for (int permutation_loop(0); permutation_loop < max_number_of_permutations; permutation_loop++) {
+    ++show_progress;
+    int previous_checksum = 0;
+    bool ordered = true;
+    for(int cross_validation_loop(0); cross_validation_loop < count; cross_validation_loop++) {
+      int previous_sample = -1;
+      int checksum = 0;
+      for (int prediction_index = cross_validation_loop; prediction_index < number_of_samples_; prediction_index += count) {
+        int sample_index = permutations[permutation_loop][prediction_index];
+        checksum += checksum * base + sample_index;
+        if (previous_sample > sample_index)
+          ordered = false;
+        previous_sample = sample_index;
+      }
+      if (checksum < previous_checksum)
+        ordered = false;
+      previous_checksum = checksum;
+    }
+    if (ordered) {
+      // I write directly into the old vector because I cannot overwrite anything important
+      for (int sample_loop(0); sample_loop < number_of_samples_; sample_loop++) {
+        permutations[new_number_of_permutations][sample_loop] = permutations[permutation_loop][sample_loop];
+      }
+      new_number_of_permutations++;
+    }
+  }
+  return new_number_of_permutations;
+  
+}
+
+int SearchLight::generate_permutations_minimal(int max_number_of_permutations, permutations_array_type &permutations) {
+  
+  return max_number_of_permutations;
+}
+
+int SearchLight::generate_permutations_deterministic(int max_number_of_permutations,permutations_array_type &permutations) {
+  // Find the right size for the permutations array
+  int new_number_of_permutations = std::min(max_number_of_permutations,boost::math::factorial(number_of_samples_));
+  permutations.resize(boost::extents[new_number_of_permutations][number_of_samples_]);
+  
+  int permutation_loop = 0;
+ 
+  gsl_permutation *p = gsl_permutation_alloc (number_of_samples_);
+  gsl_permutation_init(p); 
+  boost::progress_display show_progress(new_number_of_permutations);
+  do {
+    ++show_progress;
+    for (int sample_loop(0);sample_loop < number_of_samples_; sample_loop++) {
+      permutations[permutation_loop][sample_loop] = gsl_permutation_get(p,sample_loop);
+    }
+    permutation_loop++;
+  }
+  while (gsl_permutation_next(p) == GSL_SUCCESS && permutation_loop < max_number_of_permutations);
+  
+  gsl_permutation_free(p);
+  return(permutation_loop);
+}
+
+int SearchLight::generate_permutations_random(int max_number_of_permutations,permutations_array_type &permutations) {
+  // Resize permutations array
+  permutations.resize(boost::extents[max_number_of_permutations][number_of_samples_]);
+  
+  int *shuffle_index = new int[number_of_samples_];
+  
+  for (int sample_loop(0); sample_loop < number_of_samples_; sample_loop++) {
+    shuffle_index[sample_loop] = sample_loop;
+  }
+  
+  for (int permutation_loop(0); permutation_loop < max_number_of_permutations; permutation_loop++) {
+    shuffle(shuffle_index);
+    
+    // fill it into the permutation array
+    for (int sample_loop(0); sample_loop < number_of_samples_; sample_loop++) {
+      permutations[permutation_loop][sample_loop] = shuffle_index[sample_loop];
+    }
+  }
+  delete[] shuffle_index;
+  
+  return(max_number_of_permutations);
+}
+
+void SearchLight::PrintPermutations(int number_of_permutations,permutations_array_type &permutations) {
+  for (int permutation_loop(0); permutation_loop < number_of_permutations; permutation_loop++) {
+    for (int sample_loop(0); sample_loop < number_of_samples_; sample_loop++) {
+      cerr << permutations[permutation_loop][sample_loop] << "\t";
+    }
+    cerr << endl;
+  }
+}
+
+SearchLight::PermutationsReturn  SearchLight::calculate_permutations(permutated_validities_type &permutated_validities,int number_of_permutations) {
+  PermutationsReturn permutation_return;
+  
   cerr << "Calculating SearchLight Permutations" << endl;
   // Find relative coordinates of pixels within radius
   vector<coords_3d> relative_coords = radius_pixels();
@@ -254,51 +393,35 @@ void SearchLight::calculate_permutations(permutated_validities_type &permutated_
    * Generate all permutations at once (in preparation for later paralized work) *
    *******************************************************************************/
   
-  cerr << "Generating " << number_of_permutations << " permutations of the sample vector." << endl;
-  permutations_array_type permutations(boost::extents[number_of_permutations][number_of_samples_]);
-  int *shuffle_index = new int[number_of_samples_];
-  
-  for (int sample_loop(0); sample_loop < number_of_samples_; sample_loop++) {
-    shuffle_index[sample_loop] = sample_loop;
-  }
-  
-  boost::progress_display permutation_show_progress(number_of_permutations);
-  for (int permutation_loop(0); permutation_loop < number_of_permutations; permutation_loop++) {
-    ++permutation_show_progress;
-    // permutate the original array
-    shuffle(shuffle_index);
-    // fill it into the permutation array
-    for (int sample_loop(0); sample_loop < number_of_samples_; sample_loop++) {
-      permutations[permutation_loop][sample_loop] = shuffle_index[sample_loop];
-    }
-  }
-  delete[] shuffle_index;
-  
-
+  number_of_permutations = generate_permutations_deterministic(number_of_permutations,permutation_return.permutations);
+  PrintPermutations(number_of_permutations,permutation_return.permutations);
+  cerr << "New number of permutations: " << number_of_permutations << endl;
+ 
   // Walk through all voxels of the image data
   boost::progress_display show_progress(number_of_bands_ * number_of_rows_);
 
-#pragma omp parallel for default(none) shared(permutated_validities,permutations,number_of_permutations,show_progress) firstprivate(relative_coords) schedule(dynamic)
+   
+#pragma omp parallel for default(none) shared(permutated_validities,permutation_return,number_of_permutations,show_progress,cerr) firstprivate(relative_coords) schedule(dynamic)
   for(int band = 0; band < number_of_bands_; band++) {
-    for(int row(0); row < number_of_rows_; row++) {
+   for(int row(0); row < number_of_rows_; row++) {
 #pragma omp critical
      ++show_progress;
       for(int column(0); column < number_of_columns_; column++) {
         // Check if this is an actual brain pixel
         if (!(is_voxel_zero(band,row,column))) {
           // Put stuff into feature fector, to SVM
-          cross_validate_permutations(permutated_validities, number_of_permutations, permutations, band ,row,column,relative_coords);
+          cross_validate_permutations(permutated_validities, number_of_permutations, permutation_return.permutations, band ,row,column,relative_coords);
         } else {
           for (int permutation_loop(0); permutation_loop < number_of_permutations; permutation_loop++) {
-            permutated_validities[permutation_loop][band][row][column] = 0.0;
+            permutated_validities[band][row][column][permutation_loop] = 0.0;
           }
           
         }
       }
     }
   }
-  
-  return;
+  permutation_return.number_of_permutations = number_of_permutations;
+  return permutation_return;
 }
 
 /*

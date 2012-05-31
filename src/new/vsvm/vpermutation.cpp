@@ -14,6 +14,7 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <sstream>
 
 // C header
 #include <stdio.h>
@@ -36,6 +37,9 @@
 // Class header
 #include "MriSvm.h"
 #include "SearchLight.h"
+#include "md5.h"
+
+
 
 #define DEFAULT_VSVM_IMAGE_CLASS 0
 
@@ -47,6 +51,7 @@ using std::vector;
 using std::map;
 using std::string;
 using std::ofstream;
+using std::stringstream;
 using boost::assign::map_list_of;
 
 extern "C" void getLipsiaVersion(char*,size_t);
@@ -117,7 +122,7 @@ int main (int argc,char *argv[]) {
   VString           svm_kernel_type = NULL;
   VDouble           radius          = DEFAULT_SEARCHLIGHT_RADIUS;
   VBoolean          do_scale        = false;
-  VShort            number_of_permutations = 1;
+  VLong             number_of_permutations = 1;
 
   FILE *out_file;
 
@@ -129,7 +134,7 @@ int main (int argc,char *argv[]) {
     {"radius",      VDoubleRepn,  1, &radius,          VOptionalOpt, NULL, "Searchlight Radius (in mm)" },
     {"scale",       VBooleanRepn, 1, &do_scale,        VOptionalOpt, NULL, "Whether to scale data"},
     {"gamma",       VDoubleRepn,  1, &svm_gamma,       VOptionalOpt, NULL, "SVM gamma parameter" },
-    {"p",           VShortRepn,   1, &number_of_permutations,       VOptionalOpt, NULL, "Number of Permutations" }
+    {"p",           VLongRepn,   1, &number_of_permutations,       VOptionalOpt, NULL, "Number of Permutations" }
   };
   VParseFilterCmd(VNumber (program_options),program_options,argc,argv,NULL,&out_file);
 
@@ -142,7 +147,7 @@ int main (int argc,char *argv[]) {
    *******************************************/
 
   int number_of_samples = input_filenames.number;
-  vector<VImage> source_images[number_of_samples];
+  vector<VImage> *source_images = new vector<VImage>[number_of_samples];
 
   long int number_of_features = 0;
   int number_of_features_per_voxel = 0;
@@ -263,7 +268,7 @@ int main (int argc,char *argv[]) {
 
   //int number_of_permutations = 30;
   cerr << "Number of permutations: " << number_of_permutations << endl;
-  permutated_validities_type permutated_validities(boost::extents[number_of_permutations][number_of_bands][number_of_rows][number_of_columns]);
+  permutated_validities_type permutated_validities(boost::extents[number_of_bands][number_of_rows][number_of_columns][number_of_permutations]);
   
   SearchLight sl(number_of_bands,
                  number_of_rows,
@@ -284,11 +289,10 @@ int main (int argc,char *argv[]) {
     sl.scale();
   }
 
-  sl.calculate_permutations(permutated_validities,number_of_permutations);
+  SearchLight::PermutationsReturn permutations_return = sl.calculate_permutations(permutated_validities,number_of_permutations);
   clock_gettime(CLOCK_MONOTONIC,&end);
   long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
   cout << "Execution time: " << execution_time / 1e9 << "s" << endl;
-
 
   /*******************************
    * Save result into vista file *
@@ -297,7 +301,7 @@ int main (int argc,char *argv[]) {
   VAttrList out_list = VCreateAttrList();
   VHistory(VNumber(program_options),program_options,argv[0],&attribute_list,&out_list);
   
-  for(int permutation_loop(0); permutation_loop < number_of_permutations; permutation_loop++) {
+  for(int permutation_loop(0); permutation_loop < permutations_return.number_of_permutations; permutation_loop++) {
     VImage dest = VCreateImage(number_of_bands,number_of_rows,number_of_columns,VFloatRepn);
     VFillImage(dest,VAllBands,0);
     VCopyImageAttrs (source_images[0].front(), dest);
@@ -305,14 +309,31 @@ int main (int argc,char *argv[]) {
     for(int band(0); band < number_of_bands; band++) {
       for(int row(0); row < number_of_rows; row++) {
         for(int column(0); column < number_of_columns; column++) {
-          VPixel(dest,band,row,column,VFloat) = permutated_validities[permutation_loop][band][row][column];
+          //VPixel(dest,band,row,column,VShort) = static_cast<short>(round(permutated_validities[band][row][column][permutation_loop] * 100));
+          VPixel(dest,band,row,column,VFloat) = permutated_validities[band][row][column][permutation_loop];
         }
       }
     }
-    VSetAttr(VImageAttrList(dest),"name",NULL,VStringRepn,"SearchlightSVM");
+    // Add permutation to image
+    stringstream permutation_text;
+    
+    permutation_text << permutations_return.permutations[permutation_loop][0];
+    for (int sample_loop(1); sample_loop < number_of_samples; sample_loop++) {
+      permutation_text << "," << permutations_return.permutations[permutation_loop][sample_loop];
+    }
+    
+    VSetAttr(VImageAttrList(dest),"permutation",NULL,VStringRepn,permutation_text.str().c_str());
+    VSetAttr(VImageAttrList(dest),"name",NULL,VStringRepn,"Searchlight Permutation");
     VAppendAttr(out_list,"image",NULL,VImageRepn,dest);
+    
+    // Now print out md5 and permutation of this one
+    MD5 md5 = MD5();
+    md5.update((unsigned char *) dest->data,dest->nbands * dest->ncolumns * dest->nrows * VRepnSize(VFloatRepn));
+    md5.finalize();
+    cerr << md5.hexdigest() << "\t" << permutation_text.str() << endl;
   }
   
   VWriteFile(out_file, out_list);
+  delete[] source_images;
 }
 

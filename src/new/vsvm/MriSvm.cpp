@@ -3,6 +3,9 @@
  *
  *  Created on: 03.04.2012
  *      Author: Tilo Buschmann
+ * 
+ * Everything in this file screams: Prototype!
+ * 
  */
 
 #include <iostream>
@@ -18,7 +21,7 @@ using std::cout;
 using std::endl;
 
 /*
- * To silence libsvm
+ * A function that does nothing. Used as logging-callback function for libsvm.
  * 
  */
 
@@ -165,7 +168,7 @@ void MriSvm::Permutate(permutated_validities_type &permutated_validities,
     }
     
     // Calculate validity
-    permutated_validities[permutation_loop][band][row][column] = cross_validate(leaveout,data_base);
+    permutated_validities[band][row][column][permutation_loop] = cross_validate(leaveout,data_base);
   }
   
   delete[] data_base;
@@ -173,11 +176,15 @@ void MriSvm::Permutate(permutated_validities_type &permutated_validities,
   return;
 }
 
-double MriSvm::cross_validate(int leaveout) {
+float MriSvm::cross_validate(int leaveout) {
   return cross_validate(leaveout,all_data_);
 }
 
-double MriSvm::cross_validate(int leaveout,struct svm_node *data_base) {
+double round(double r) {
+    return (r > 0.0) ? floor(r + 0.5) : ceil(r - 0.5);
+}
+
+float MriSvm::cross_validate(int leaveout,struct svm_node *data_base) {
   /* Sanity Check */
   if ((number_of_samples_ - leaveout) < 2) {
     cerr << "I need at least two trainings samples in cross validation." << endl;
@@ -227,7 +234,7 @@ double MriSvm::cross_validate(int leaveout,struct svm_node *data_base) {
   }
   delete[] trainings_problem.x;
   
-  return (double) total_correct / (double) (number_of_samples_);
+  return ((float) total_correct / (float) (number_of_samples_));
 }
 
 struct svm_parameter MriSvm::get_default_parameters() {
