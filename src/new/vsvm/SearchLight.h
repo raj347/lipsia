@@ -64,9 +64,12 @@ private:
   int generate_permutations_random(int max_number_of_permutations,permutations_array_type &permutations);
   int generate_permutations_deterministic(int max_number_of_permutations,permutations_array_type &permutations);
   int generate_permutations_minimal(int max_number_of_permutations, permutations_array_type &permutations);
+  int generate_permutations(int max_number_of_permutations,permutations_array_type &permutations);
   
   bool good_permutation(permutations_array_type &permutations, int position,int leaveout);
-  int find_permutation_base(permutations_array_type &permutations, int position,int leaveout);
+  void convert_permutation_base(int *permutation,int leaveout);
+  bool are_permutations_equal(permutations_array_type permutations, int position, int * new_permutation);
+  bool is_known_permutation(permutations_array_type permutations, int * new_permutation, int number_of_permutations);
   
   void PrintPermutations(int number_of_permutations,permutations_array_type &permutations);
   
