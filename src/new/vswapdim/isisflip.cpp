@@ -48,6 +48,7 @@ int main( int argc, char **argv )
 		if( dim > 2 ) {
 			dim = refImage.mapScannerAxisToImageDimension( static_cast<data::scannerAxis>( dim - 3 ) );
 		}
+
 		T( dim, dim ) *= -1;
 		data::Image newImage = refImage;
 

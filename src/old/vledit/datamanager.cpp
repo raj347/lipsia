@@ -849,9 +849,9 @@ void DataManager::loadVistaImage( FILE *fp )
 	}
 
 	//TODO DEBUG
-//	qWarning( QString("Resolution (Anatomie): ") + QString::number( m_original->getResolution()[0] )
-//			  + QString("x") + QString::number( m_original->getResolution()[1] )
-//			  + QString("x") + QString::number( m_original->getResolution()[2] ) );
+	//  qWarning( QString("Resolution (Anatomie): ") + QString::number( m_original->getResolution()[0] )
+	//            + QString("x") + QString::number( m_original->getResolution()[1] )
+	//            + QString("x") + QString::number( m_original->getResolution()[2] ) );
 }
 
 
@@ -1506,9 +1506,9 @@ void DataManager::setSegResolution( float res )
 		m_segResolution[i] = res;
 
 	//TODO DEBUG
-//	qWarning( QString("Resolution (Segment): ") + QString::number( m_segResolution[0] )
-//			  + QString("x") + QString::number( m_segResolution[1] )
-//			  + QString("x") + QString::number( m_segResolution[2] ) );
+	//  qWarning( QString("Resolution (Segment): ") + QString::number( m_segResolution[0] )
+	//            + QString("x") + QString::number( m_segResolution[1] )
+	//            + QString("x") + QString::number( m_segResolution[2] ) );
 
 }
 
@@ -1581,19 +1581,19 @@ bool DataManager::isValidSegment( VImage img )
 		|| ( ( *( iter++ ) ).toFloat() != m_segResolution[2] ) ) {
 		iter = resList.begin();
 		QString segment_res(
-			( *( iter++ ) ) + QString(", ") +
-			( *( iter++ ) ) + QString(", ") +
+			( *( iter++ ) ) + QString( ", " ) +
+			( *( iter++ ) ) + QString( ", " ) +
 			( *( iter++ ) ) );
 		QString config_res(
-			QString::number( m_segResolution[0] ) + QString(", ") +
-			QString::number( m_segResolution[1] ) + QString(", ") +
+			QString::number( m_segResolution[0] ) + QString( ", " ) +
+			QString::number( m_segResolution[1] ) + QString( ", " ) +
 			QString::number( m_segResolution[2] ) );
 		QString error(
-			QString("Error loading vimage: resolution (") +
+			QString( "Error loading vimage: resolution (" ) +
 			segment_res +
-			QString(") is not compatible with current settings (") +
-			config_res + QString(").") );
-//		qWarning( error.latin1() );
+			QString( ") is not compatible with current settings (" ) +
+			config_res + QString( ")." ) );
+		//      qWarning( error.latin1() );
 		return false;
 	}
 
