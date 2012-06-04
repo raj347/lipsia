@@ -12,6 +12,7 @@
 #include <vector>
 #include <string>
 
+#define BOOST_DISABLE_ASSERTS
 #include "boost/multi_array.hpp"
 
 #define DEFAULT_MRISVM_SCALE_LOWER                -1

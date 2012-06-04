@@ -23,6 +23,7 @@
 #include <time.h>
 
 // Boost header
+#define BOOST_DISABLE_ASSERTS
 #include "boost/multi_array.hpp"
 #include "boost/assign.hpp"
 #include <boost/progress.hpp>

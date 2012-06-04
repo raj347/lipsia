@@ -12,6 +12,7 @@
 #include <vector>
 #include <string>
 
+#define BOOST_DISABLE_ASSERTS
 #include "boost/multi_array.hpp"
 
 #define DEFAULT_SEARCHLIGHT_SCALE_LOWER 0
@@ -60,12 +61,12 @@ public:
 
 private:
   void shuffle(int *array);
-  //int generate_permutations(int max_number_of_permutations,permutations_array_type &permutations);
-  //int generate_permutations_fixed(int max_number_of_permutations,permutations_array_type &permutations);
   int generate_permutations_random(int max_number_of_permutations,permutations_array_type &permutations);
   int generate_permutations_deterministic(int max_number_of_permutations,permutations_array_type &permutations);
-  int generate_permutations_filtered(int max_number_of_permutations,permutations_array_type &permutations,int leaveout);
   int generate_permutations_minimal(int max_number_of_permutations, permutations_array_type &permutations);
+  
+  bool good_permutation(permutations_array_type &permutations, int position,int leaveout);
+  int find_permutation_base(permutations_array_type &permutations, int position,int leaveout);
   
   void PrintPermutations(int number_of_permutations,permutations_array_type &permutations);
   
