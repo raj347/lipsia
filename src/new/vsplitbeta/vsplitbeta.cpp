@@ -1,9 +1,8 @@
 /*
-** vsplitbeta - split betas from a single file
-**
-** Tilo Buschmann, 2012
-**
-** Screw it, I am using C++ in this file
+* vsplitbeta - split betas from a single file
+*
+* Tilo Buschmann, 2012
+*
 */
 
 // C++ header
