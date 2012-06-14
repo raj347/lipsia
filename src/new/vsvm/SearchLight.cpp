@@ -343,6 +343,7 @@ int SearchLight::generate_permutations(int max_number_of_permutations,permutatio
   int possible_number_of_permutations = static_cast<int>(boost::math::factorial<double>(n) / (boost::math::factorial<double>(n/2)));
 
   cerr << "Number of possible permutations: " << possible_number_of_permutations << endl;
+  
   // If we want more permutations than possible, we give all possible
   if (max_number_of_permutations >= possible_number_of_permutations) {
     cerr << "Too many permutations requested. Will give all known." << endl;
