@@ -36,3 +36,4 @@ add_subdirectory(vsvm)
 
 add_subdirectory(vselect)
 add_subdirectory(vmerge)
+add_subdirectory(vsplitbeta)
