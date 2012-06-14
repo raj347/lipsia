@@ -9,12 +9,12 @@
 #include <iostream>
 #include <iomanip>
 #include <sstream>
-#include <cstdio>
 #include <map>
 #include <fstream>
 
 // C header
 #include <stdlib.h>
+#include <stdio.h>
 
 // VIA header
 #include <viaio/Vlib.h>
@@ -29,7 +29,7 @@ using std::endl;
 extern "C" void getLipsiaVersion(char*,size_t);
 
 // My own version of VReadHistory that does not suck as much
-VAttrList VReadHistory(VAttrList *list) { 
+VAttrList _VReadHistory_(VAttrList *list) { 
   VAttrListPosn posn;
   VAttrList history_list=NULL;
   char history[]="history";
@@ -154,7 +154,7 @@ int main (int argc,char *argv[]) {
             VHistory(VNumber(program_options),program_options,argv[0],&attribute_list,&out_list);
             first_history = false;
           } else {
-            VAttrList history_list = VReadHistory(&attribute_list);
+            VAttrList history_list = _VReadHistory_(&attribute_list);
             VPrependAttr(out_list,"history",NULL,VAttrListRepn,history_list);
           }
           VWriteFile(output_file, out_list);
