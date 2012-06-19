@@ -1,3 +1,9 @@
+lipsia (2.2.2-2) stable; urgency=low
+
+  * dependency to isis 0.6.0 (libisis-core2)
+
+ -- Lipsia Group (The official Lipsia developer group) <lipsia@cbs.mpg.de>  Tue, 19 Jun 2012 08:21:32 +0100
+
 lipsia (2.2.2-1) stable; urgency=low
 
   * dependency to isis 0.5.3
