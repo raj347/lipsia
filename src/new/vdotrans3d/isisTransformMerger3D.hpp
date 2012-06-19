@@ -38,10 +38,10 @@ namespace isis
 namespace extitk
 {
 
-	typedef itk::Vector<float, 3> VectorType;
-	typedef itk::Image<VectorType, 3> DeformationFieldType;
-	typedef itk::Image<float, 3> ImageType;
-	
+typedef itk::Vector<float, 3> VectorType;
+typedef itk::Image<VectorType, 3> DeformationFieldType;
+typedef itk::Image<float, 3> ImageType;
+
 class TransformMerger3D : public std::list<DeformationFieldType::Pointer>
 {
 public:
@@ -53,22 +53,22 @@ public:
 
 
 	TransformMerger3D();
-	bool merge(void );
-	DeformationFieldType::Pointer getTransform(void ) const;
-	
+	bool merge( void );
+	DeformationFieldType::Pointer getTransform( void ) const;
+
 	void setNumberOfThreads( const size_t &nt ) { m_NT = nt; }
 	void setTemplateImage( const ImageType::Pointer image ) { m_TemplateImage = image; }
-		
+
 
 private:
-	
+
 	DeformationFieldType::Pointer m_DeformationField;
 	ImageType::Pointer m_TemplateImage;
 	ResampleDeformationImageFilterType::Pointer m_Resampler;
 	AddImageFilterType::Pointer m_AddImageFilter;
 	size_t m_NT;
-	
-	
+
+
 
 };
 

@@ -374,7 +374,7 @@ private:
 	unsigned int m_NumberOfParameters;
 
 	isis::extitk::IterationObserver::Pointer m_observer;
-	
+
 	void prealign();
 
 	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -417,7 +417,7 @@ private:
 
 	typename BSplineTransformType::Pointer m_BSplineTransform;
 	typename BSplineTransformType::ParametersType m_BSplineParameters;
-	
+
 	BulkTransformType::Pointer m_BulkTransform;
 
 	//metric
