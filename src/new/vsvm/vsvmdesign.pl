@@ -2,8 +2,6 @@
 #
 # Author: Tilo Buschmann
 #
-# I am sorry for the shoddy code, but I did not program perl for quite some
-# time and it is an obsolete language
 
 use strict;
 
@@ -15,11 +13,13 @@ my $out_design      = "design_single.txt";
 my $out_conversion  = "conversion.txt";
 my $help  = 0;
 my $man   = 0;
+my $aggr  = 1; # How many betas to aggregate
 
 GetOptions ('help|?'            => \$help, 
             'man'               => \$man,
             'out_design=s'      => \$out_design,
             'out_conversion=s'  => \$out_conversion,
+            'aggregate|aggr=i'  => \$aggr
         ) or pod2usage(-verbose => 0);
 
 pod2usage(-verbose => 1) if $help;
@@ -31,12 +31,11 @@ $in_design = $ARGV[0];
 
 # 1) Design mit Nummer pro Kondition zu einem Design mit Nummer pro Event
 
-
 open INPUT_DESIGN,$in_design                or die $!;
 open OUTPUT_DESIGN,">",$out_design          or die $!;
 open OUTPUT_CONVERSION,">",$out_conversion  or die $!;
 
-my $line_number = 1;
+my $next_input_name = 1;
 
 while (<INPUT_DESIGN>) {
   if (/^\s*\%/ || /^\s*$/) {
@@ -45,10 +44,10 @@ while (<INPUT_DESIGN>) {
   } else {
     # Entry
     chomp;
-    split /\t/;  
-    print OUTPUT_DESIGN "$line_number\t$_[1]\t$_[2]\t$_[3]\n";
-    print OUTPUT_CONVERSION "$line_number\t$_[0]\n";
-    $line_number++;
+    my ($class,$time,$duration,$intensity) = split /\t/;  
+    print OUTPUT_DESIGN "$next_input_name\t$time\t$duration\t$intensity\n";
+    print OUTPUT_CONVERSION "$next_input_name\t$class\n";
+    $next_input_name++;
   }
 }
 

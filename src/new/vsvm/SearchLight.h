@@ -19,7 +19,7 @@
 #define DEFAULT_SEARCHLIGHT_SCALE_UPPER 1
 #define DEFAULT_SEARCHLIGHT_RADIUS      3
 #define DEFAULT_SEARCHLIGHT_DO_SHOW_PROGRESS false
-
+#define DEFAULT_SEARCHLIGHT_LEAVEOUT 2
 
 #include "MriTypes.h"
 #include "MriSvm.h"
@@ -45,7 +45,6 @@ public:
               int number_of_features_per_voxel,
               sample_3d_array_type sample_features,
               vector<int> classes,
-              double radius,
               double extension_band,
               double extension_row,
               double extension_column
@@ -53,8 +52,8 @@ public:
 
   virtual ~SearchLight();
   void printConfiguration();
-  sample_validity_array_type calculate();
-  PermutationsReturn calculate_permutations(permutated_validities_type &permutated_validities, int number_of_permutations);
+  sample_validity_array_type calculate(double radius);
+  PermutationsReturn calculate_permutations(permutated_validities_type &permutated_validities, int number_of_permutations, double radius);
   void scale();
   
   
@@ -73,7 +72,7 @@ private:
   
   void PrintPermutations(int number_of_permutations,permutations_array_type &permutations);
   
-  vector<coords_3d>     radius_pixels();
+  vector<coords_3d>     radius_pixels(double);
   bool                  is_voxel_zero(int,int,int);
   bool                  are_coordinates_valid(int,int,int);
   double                cross_validate(int,int,int,vector<coords_3d>&);
@@ -93,9 +92,10 @@ private:
   int      number_of_columns_;
   int      number_of_samples_;
   int      number_of_features_per_voxel_;
+  int      number_of_classes_;
+  
   sample_3d_array_type sample_features_;
   vector <int>  classes_;
-  double  radius_;
 
   int     svm_type_;
   int     svm_kernel_type_;

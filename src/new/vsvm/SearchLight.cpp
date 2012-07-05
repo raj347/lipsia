@@ -1,25 +1,32 @@
 /**
- * SearchLight.cpp
+ * @file SearchLight.cpp
+ * Implementation of searchlight support vector machines
  *
- *  Created on: 16.04.2012
- *      Author: Tilo Buschmann
+ * @author Tilo Buschmann, 2012
+ *
+ * "I am become death, destroyer of worlds"
  */
 
+// C++ header
 #include <iostream>
 #include <fstream>
 #include <algorithm>
+#include <vector>
 
+// C header
 #include <stdio.h>
 
+// Boost header
 #include <boost/foreach.hpp>
 #include <boost/progress.hpp>
 #include <boost/math/special_functions/factorials.hpp>
 
-// GSL
+// GSL headers
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_permutation.h>
 
+// Class headers
 #include "SearchLight.h"
 
 #ifdef _OPENMP
@@ -31,14 +38,13 @@ using std::cerr;
 using std::cout;
 using std::endl;
 
-/**************************
- * Some necessary C stuff *
- **************************/
+/**
+ * Generates a random int
+   
+   @param[in]     n the exclusive upper limit
 
-/*
- * Get a random int
- */
-
+   @return random number in the intervall [0,n-1]
+*/
 static int rand_int(int n) {
   int limit = RAND_MAX - RAND_MAX % n;
   int rnd;
@@ -49,9 +55,20 @@ static int rand_int(int n) {
   return rnd % n;
 }
 
-/***************
- * Searchlight *
- ***************/
+/**
+ * The constructor mostly only assigns its parameters to member variables. It also calculates the number of classes used as a preparation for cross validation.
+ *
+ * @param number_of_bands number of bands
+ * @param number_of_rows number of rows
+ * @param number_of_columns number of columns
+ * @param number_of_samples number of samples
+ * @param number_of_features_per_voxel number of features per voxel
+ * @param sample_features The data in a 4d array
+ * @param classes vector of classes, one class per sample
+ * @param extension_band Extension (i.e. measure) of one voxel along the band axis
+ * @param extension_row Extension (i.e. measure) of one voxel along the row axis
+ * @param extension_column Extension (i.e. measure) of one voxel along the column axis
+ */
 SearchLight::SearchLight(int number_of_bands, 
                          int number_of_rows, 
                          int number_of_columns, 
@@ -59,7 +76,6 @@ SearchLight::SearchLight(int number_of_bands,
                          int number_of_features_per_voxel,
                          sample_3d_array_type sample_features, 
                          vector<int> classes,
-                         double radius,
                          double extension_band,
                          double extension_row,
                          double extension_column
@@ -71,28 +87,36 @@ SearchLight::SearchLight(int number_of_bands,
                 number_of_features_per_voxel_(number_of_features_per_voxel),
                 sample_features_(sample_features),
                 classes_(classes),
-                radius_(radius),
                 extension_band_(extension_band),
                 extension_row_(extension_row),
                 extension_column_(extension_column),
                 do_show_progress(DEFAULT_SEARCHLIGHT_DO_SHOW_PROGRESS)
 
 {
-  printConfiguration();
+  // Find number of classes from classes vector, but first let's get a copy
+  vector<int> classes_copy(classes);
+  std::sort(classes_copy.begin(), classes_copy.end());
+  vector<int>::iterator it;
+  it = std::unique(classes_copy.begin(), classes_copy.end());
+ 
+  number_of_classes_ = it - classes_copy.begin();
 }
 
 SearchLight::~SearchLight() {
 
 }
 
+/**
+ * Print the values of all member variables.
+ */
 void SearchLight::printConfiguration() {
   cerr << "SearchLight configuration" << endl;
   cerr << "number_of_bands="    << number_of_bands_   << endl;
   cerr << "number_of_rows="     << number_of_rows_    << endl;
   cerr << "number_of_columns="  << number_of_columns_ << endl;
   cerr << "number_of_samples="  << number_of_samples_ << endl;
-  cerr << "feature_dimension="  << number_of_features_per_voxel_ << endl;
-  cerr << "radius="             << radius_            << endl;
+  cerr << "number_of_features_per_voxel="  << number_of_features_per_voxel_ << endl;
+  cerr << "number_of_classes_"  << number_of_classes_ << endl;
   cerr << "Classes:"                                  << endl;
   for(int sample_loop(0); sample_loop < number_of_samples_; sample_loop++) {
     cerr << classes_[sample_loop] << "\t";
@@ -100,18 +124,18 @@ void SearchLight::printConfiguration() {
   cerr << endl;
 }
 
-/*
- * Calculates all relative pixels within a given radius
+/**
+ * Calculate which voxels are within a given radius, relativ to a voxel at position (0,0,0)
  */
-vector<coords_3d> SearchLight::radius_pixels() {
+vector<coords_3d> SearchLight::radius_pixels(double radius) {
   vector<coords_3d> tmp; // Holds relative coordinates of pixels within the radius
 
-  double distance = radius_ * radius_; // square of radius to safe a square root later
+  double distance = radius * radius; // square of radius to save a square root later
 
-   // Search within box
-  for (int rel_band(-radius_);rel_band <= radius_; rel_band++)
-    for (int rel_row(-radius_);rel_row <= radius_; rel_row++)
-      for (int rel_column(-radius_);rel_column <= radius_; rel_column++) {
+  // brute force search within a box around (0,0,0)
+  for (int rel_band(-radius);rel_band <= radius; rel_band++)
+    for (int rel_row(-radius);rel_row <= radius; rel_row++)
+      for (int rel_column(-radius);rel_column <= radius; rel_column++) {
         if ((pow(rel_band * extension_band_,2) + pow(rel_row * extension_row_,2) + pow(rel_column * extension_column_,2)) <= distance) {
           coords_3d to_insert = { { rel_band, rel_row, rel_column} };
           tmp.push_back(to_insert);
@@ -120,8 +144,12 @@ vector<coords_3d> SearchLight::radius_pixels() {
   return tmp;
 }
 
-/*
- * Tests if feature has a value of 0.0 in every sample
+/**
+ * Tests if for every sample, every features of this voxel has a value of 0.0
+ *
+ * @param band  band coordinate of voxel
+ * @param row row coordinate of voxel
+ * @column column coordinate of voxel
  */
 bool SearchLight::is_voxel_zero(int band,int row,int column) {
   for (int sample(0);sample < number_of_samples_;sample++) {
@@ -133,8 +161,13 @@ bool SearchLight::is_voxel_zero(int band,int row,int column) {
   return(true);
 }
 
-/*
+/**
  * Tests if coordinates are within our coordinate system
+ *
+ *
+ * @param band  band coordinate of voxel
+ * @param row row coordinate of voxel
+ * @column column coordinate of voxel
  */
 bool SearchLight::are_coordinates_valid(int band,int row,int column) {
   return((band >= 0) && 
@@ -146,6 +179,15 @@ bool SearchLight::are_coordinates_valid(int band,int row,int column) {
 
 }
 
+/**
+ * Extract voxel data given by relative coordinates and center voxel given by coordinates and return it in a MriSVM capable format
+ *
+ * @param[out] sample_features array that is getting filled with mrisvm capable data
+ * @param[in] band  band coordinate of voxel
+ * @param[in] row row coordinate of voxel
+ * @param[in] column column coordinate of voxel
+ * @param[in] relative_coords relative coordinates around the given voxel to extract data from
+ */
 int SearchLight::prepare_for_mrisvm(sample_features_array_type &sample_features,int band, int row, int column,vector<coords_3d> &relative_coords) {
 
   int feature_number = 0;
@@ -166,8 +208,17 @@ int SearchLight::prepare_for_mrisvm(sample_features_array_type &sample_features,
   return feature_number;
 }
 
-/*
- * Calculates cross validation accuracy of voxel at position specified by (band,row,colum)
+/**
+ * Calculates cross validation accuracy of searchlight around voxel at position specified by (band,row,colum)
+ *
+ * The method is leave_out + sliding window, the default leave_out value is equal to the number of classes
+ *
+ * @param[in] band  band coordinate of voxel
+ * @param[in] row row coordinate of voxel
+ * @param[in] column column coordinate of voxel
+ * @param[in] relative_coords relative coordinates around the given voxel to extract data from
+ *
+ * @return cross validity of the support vector machine for the searchlight at this voxel
  */
 double SearchLight::cross_validate(int band, int row, int column,vector<coords_3d> &relative_coords) {
   int number_of_features = relative_coords.size() * number_of_features_per_voxel_;
@@ -182,8 +233,23 @@ double SearchLight::cross_validate(int band, int row, int column,vector<coords_3
                 feature_number
                );
   
-  return(mrisvm.cross_validate(2));
+  return(mrisvm.cross_validate(number_of_classes_));
 }
+
+/**
+ * Calculates cross validation accuracy of searchlight around voxel at position specified by (band,row,colum), but for a permutated sample, i.e. the samples get thrown around according to the directions givven in the input data
+ *
+ * The method is leave_out + sliding window, the default leave_out value is equal to the number of classes
+ *
+ *
+ * @param[out]  permutated_validities array to store all the calculated cross validities for all permutations
+ * @param[in] number_of_permutations number of permutations
+ * @param[in] array containing all permutations
+ * @param[in] band  band coordinate of voxel
+ * @param[in] row row coordinate of voxel
+ * @param[in] column column coordinate of voxel
+ * @param[in] relative_coords relative coordinates around the given voxel to extract data from
+ */
 
 void SearchLight::cross_validate_permutations(permutated_validities_type  &permutated_validities,
                                               int                         number_of_permutations,
@@ -192,7 +258,7 @@ void SearchLight::cross_validate_permutations(permutated_validities_type  &permu
                                               int                         row, 
                                               int                         column,
                                               vector<coords_3d>           &relative_coords) {
-  int leaveout = 2;
+  int leaveout = number_of_classes_;
   
   int number_of_features = relative_coords.size() * number_of_features_per_voxel_;
   
@@ -210,21 +276,25 @@ void SearchLight::cross_validate_permutations(permutated_validities_type  &permu
   return;
 }
 
-/*
- * Calculates cross validation accuracy for all voxels
+/**
+ * Calculate the cross validities via searchlight support vector machines for the whole brain
+ *
+ * @param[in] radius radius of the searchlight
+ *
+ * @return array containing cross validities
  */
-sample_validity_array_type SearchLight::calculate() {
+sample_validity_array_type SearchLight::calculate(double radius) {
   cerr << "Calculating SearchLight" << endl;
   // Find relative coordinates of pixels within radius
-  vector<coords_3d> relative_coords = radius_pixels();
-
+  vector<coords_3d> relative_coords = radius_pixels(radius);
   cerr << "Contains " << relative_coords.size() << " voxels " << endl;
 
+  // The result vector
   sample_validity_array_type validities(boost::extents[number_of_bands_][number_of_rows_][number_of_columns_]);
 
-  // Walk through all voxels of the image data
   boost::progress_display show_progress(number_of_bands_ * number_of_rows_);
 
+  // Walk through all voxels of the image data
 #pragma omp parallel for default(none) shared(validities,show_progress) firstprivate(relative_coords) schedule(dynamic)
   for(int band = 0; band < number_of_bands_; band++) {
     for(int row(0); row < number_of_rows_; row++) {
@@ -244,6 +314,11 @@ sample_validity_array_type SearchLight::calculate() {
   return validities;
 }
 
+/**
+ * Shuffles an array
+ *
+ * @param[in,out] array array to be shuffled
+ */
 void SearchLight::shuffle(int *array) {
   int j,tmp;
   
@@ -256,10 +331,17 @@ void SearchLight::shuffle(int *array) {
   
 }
 
-bool SearchLight::good_permutation(permutations_array_type &permutations, int position,int leaveout) {
-  int count = number_of_samples_ / leaveout;
-  if ((number_of_samples_ % leaveout) != 0)
-    count++;
+/** 
+ *
+ * Determines, if this permutation is a "good" permutation, i.e. it is the
+ * lexicographical lowest member of the equivalence class
+ *
+ * @return true if it is a good permutation, false otherwise
+ */
+
+bool SearchLight::good_permutation(permutations_array_type &permutations, int
+    position,int leaveout) { int count = number_of_samples_ / leaveout; if
+  ((number_of_samples_ % leaveout) != 0) count++;
   
   for(int cross_validation_loop(1); cross_validation_loop < count; cross_validation_loop++) {
     if (permutations[position][cross_validation_loop] < permutations[position][cross_validation_loop-1])
@@ -268,13 +350,21 @@ bool SearchLight::good_permutation(permutations_array_type &permutations, int po
   return true;
 }
 
+/**
+ *
+ * Convert a permutation to its lexicographic lowest equivalent
+ *
+ * @param[in,out] permutation to be converted
+ * @param[in] how many samples will be left out during cross-validation
+ *
+ */
 void SearchLight::convert_permutation_base(int *permutation,int leaveout) {
   int count = number_of_samples_ / leaveout;
   
   if ((number_of_samples_ % leaveout) != 0)
     count++;
 
-  // Bubble sort, sort of ;)
+  // Bubble sort, kind of ;)
   for(int outer(1); outer < count; outer++) {
     for(int inner(1); inner < (count-outer+1); inner++) {
       if (permutation[inner] < permutation[inner-1]) {
@@ -290,9 +380,22 @@ void SearchLight::convert_permutation_base(int *permutation,int leaveout) {
   }
 }
 
+/** 
+ *
+ * One of several algorithms to generate permutations. This one generates all
+ * possible permutations up to a specified maximum. It is a deterministic
+ * algorithm, so we cannot consider  this a random drawing
+ *
+ * @param[in] max_number_of_permutations  number of permutations requested
+ * @param[out]  permutations array containing all the newly generated permutations
+ *
+ * @return actual number of permutations generated, might be smaller than the input parameter max_number_of_permutations because we cannot generate as much
+ *
+ */
 
 int SearchLight::generate_permutations_minimal(int max_number_of_permutations, permutations_array_type &permutations) {
-  int n = number_of_samples_;
+  
+  int n = number_of_samples_; 
   int possible_number_of_permutations = static_cast<int>(boost::math::factorial<double>(n) / (boost::math::factorial<double>(n/2)));
   
   int new_number_of_permutations = std::min(max_number_of_permutations,possible_number_of_permutations);
@@ -311,7 +414,7 @@ int SearchLight::generate_permutations_minimal(int max_number_of_permutations, p
       permutations[permutation_loop][sample_loop] = gsl_permutation_get(p,sample_loop);
     }
     // If it is good, we use the next one
-    if (good_permutation(permutations,permutation_loop,2)) {
+    if (good_permutation(permutations,permutation_loop,number_of_classes_)) {
       ++show_progress;
       permutation_loop++;
     }
@@ -322,6 +425,13 @@ int SearchLight::generate_permutations_minimal(int max_number_of_permutations, p
   return new_number_of_permutations;
 }
 
+/**
+ * Tests if two permutations are lexicographical in the equivalence class,i.e. they would  test exactly the same cross-validity
+ *
+ * @return true if the two permutations are lexicographical equivalent
+ *
+ */
+
 bool SearchLight::are_permutations_equal(permutations_array_type permutations, int position, int * new_permutation) {
   for (int sample_loop(0); sample_loop < number_of_samples_; sample_loop++) {
     if (permutations[position][sample_loop] != new_permutation[sample_loop])
@@ -329,7 +439,12 @@ bool SearchLight::are_permutations_equal(permutations_array_type permutations, i
   }
   return true;
 }
-  
+
+/**
+ * Test if we already know this permutation
+ *
+ * @return true if permutation is known, false otherwise
+ */
 bool SearchLight::is_known_permutation(permutations_array_type permutations, int * new_permutation, int number_of_permutations) {
     for (int permutation_loop(0); permutation_loop < number_of_permutations; permutation_loop++) {
       if (are_permutations_equal(permutations,permutation_loop,new_permutation))
@@ -393,7 +508,7 @@ int SearchLight::generate_permutations(int max_number_of_permutations,permutatio
       
       do {
         shuffle(shuffle_index);
-        convert_permutation_base(shuffle_index,2);
+        convert_permutation_base(shuffle_index,number_of_classes_);
         if (!is_known_permutation(permutations,shuffle_index,permutation_loop)) {
           for (int sample_loop(0); sample_loop < number_of_samples_; sample_loop++) {
             permutations[permutation_loop][sample_loop] = shuffle_index[sample_loop];
@@ -465,12 +580,12 @@ void SearchLight::PrintPermutations(int number_of_permutations,permutations_arra
   }
 }
 
-SearchLight::PermutationsReturn  SearchLight::calculate_permutations(permutated_validities_type &permutated_validities,int number_of_permutations) {
+SearchLight::PermutationsReturn  SearchLight::calculate_permutations(permutated_validities_type &permutated_validities,int number_of_permutations,double radius) {
   PermutationsReturn permutation_return;
   
   cerr << "Calculating SearchLight Permutations" << endl;
   // Find relative coordinates of pixels within radius
-  vector<coords_3d> relative_coords = radius_pixels();
+  vector<coords_3d> relative_coords = radius_pixels(radius);
 
   cerr << "Contains " << relative_coords.size() << " voxels " << endl;
 
