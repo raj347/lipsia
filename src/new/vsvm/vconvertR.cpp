@@ -1,8 +1,10 @@
-/*
-** Convert Data in our format to something readable by R
-**
-** Tilo Buschmann, 2012
-*/
+/**
+ * @file vconvertR.cpp
+ * 
+ * Convert Data in our format to something readable by R
+ *
+ * @author Tilo Buschmann
+ */
 
 // C++ header
 #include <fstream>
@@ -54,10 +56,12 @@ int main (int argc,char *argv[]) {
   // Parse command line parameters
   static VArgVector input_filenames;
   VString output_filename = NULL;
+  VBoolean  filter_empty = false;
 
   static VOptionDescRec program_options[] = {
     {"in",  VStringRepn,  0, &input_filenames, VRequiredOpt, NULL, "Input files" },
-    {"out", VStringRepn,  1, &output_filename, VRequiredOpt, NULL, "Output file" }
+    {"out", VStringRepn,  1, &output_filename, VRequiredOpt, NULL, "Output file" },
+    {"filter",VBooleanRepn, 1, &filter_empty,  VOptionalOpt, NULL, "Whether to filter out empty voxels"}
   };
   VParseFilterCmd(VNumber (program_options),program_options,argc,argv,NULL,NULL);
 
@@ -137,14 +141,15 @@ int main (int argc,char *argv[]) {
   ofstream outputr;
   outputr.open(output_filename);
 
-  outputr << "Sample\tBand\tRow\tColumn\tFeature\tClass\tValue" << endl;
 
   int number_of_bands   = VImageNBands(source_images[0].front());
   int number_of_rows    = VImageNRows(source_images[0].front());
   int number_of_columns = VImageNColumns(source_images[0].front());
 
-  vector <int> classes(number_of_samples);
 
+  /*
+  outputr << "Sample\tBand\tRow\tColumn\tFeature\tClass\tValue" << endl;
+  vector <int> classes(number_of_samples);
   boost::progress_display convert_progress(number_of_samples);
   for(int sample_index(0); sample_index < number_of_samples; sample_index++) {
     ++convert_progress;
@@ -156,8 +161,8 @@ int main (int argc,char *argv[]) {
 
     classes[sample_index] = image_class;
 
+    int feature_index = 0;
     BOOST_FOREACH(VImage image, source_images[sample_index]) {
-      int feature_index = 0;
       for(int band(0); band < number_of_bands; band++) {
         for(int row(0); row < number_of_rows; row++) {
           for(int column(0); column < number_of_columns; column++) {
@@ -170,6 +175,70 @@ int main (int argc,char *argv[]) {
       }
       feature_index++;
     }
+  }
+  */
+
+  // Detect empty voxels
+  bool voxel_is_empty[number_of_bands][number_of_rows][number_of_columns];
+ 
+  outputr << "Class";
+  // Header
+  for(int band(0); band < number_of_bands; band++) {
+    for(int row(0); row < number_of_rows; row++) {
+      for(int column(0); column < number_of_columns; column++) {
+        if (filter_empty) {
+          voxel_is_empty[band][row][column] = true;
+          for(int sample_index(0); sample_index < number_of_samples; sample_index++) {
+            for(int feature(0); feature < number_of_features_per_voxel; feature++) {
+              VImage this_image = source_images[sample_index][feature];
+              if (VGetPixel(this_image,band,row,column) != 0.0) {
+                voxel_is_empty[band][row][column] = false;
+              }
+            }
+          }
+        }
+        if (!(filter_empty && voxel_is_empty[band][row][column])) {
+          if (number_of_features_per_voxel > 1) {
+            for(int feature(0); feature < number_of_features_per_voxel; feature++) {
+              outputr << "\t\"" << band << " " << row << " " << column << " " << feature << "\"";
+            }
+          } else {
+            outputr << "\t\"" << band << " " << row << " " << column << "\"";
+          }
+        }
+      }
+    }
+  }
+  outputr << endl;
+ 
+  // Data
+  vector<double> classes(number_of_samples);
+  boost::progress_display convert_progress(number_of_samples);
+  
+  for(int sample_index(0); sample_index < number_of_samples; sample_index++) {
+    double image_class = DEFAULT_VSVM_IMAGE_CLASS;
+    
+    if(VGetAttr(VImageAttrList(source_images[sample_index].front()), "class", NULL, VDoubleRepn, &image_class) != VAttrFound) {
+      cerr << "Image does not have class attribute. Using default value (" << DEFAULT_VSVM_IMAGE_CLASS << ")" << endl;
+    }
+    
+    outputr << "Sample_" << sample_index << "\t" << image_class;
+    for(int band(0); band < number_of_bands; band++) {
+      for(int row(0); row < number_of_rows; row++) {
+        for(int column(0); column < number_of_columns; column++) {
+          if (!(filter_empty && voxel_is_empty[band][row][column])) {
+            int feature_index = 0;
+            BOOST_FOREACH(VImage image, source_images[sample_index]) {
+              outputr << "\t" << VGetPixel(image,band,row,column);
+              feature_index++;
+            }
+          }
+        }
+      }
+    }
+    // Last row is class
+    outputr << endl;
+    ++convert_progress;
   }
 
   outputr.close();

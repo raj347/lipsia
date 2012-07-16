@@ -1,11 +1,11 @@
-
-/*
-** SVM - Support Vector Machines
-** 
-** Permutation Engine
-**
-** author: Tilo Buschmann, 2012
-*/
+/**
+ * 
+ * @file vpermutation.cpp
+ * 
+ * Does searchlightsvm not on the original data, but on permutations where samples are assigned to different (random) classes. Produces as many random permutations as requested.
+ * 
+ * @author: Tilo Buschmann
+ */
 
 // C++ header
 #include <iostream>
@@ -38,9 +38,6 @@
 // Class header
 #include "MriSvm.h"
 #include "SearchLight.h"
-#include "md5.h"
-
-
 
 #define DEFAULT_VSVM_IMAGE_CLASS 0
 
@@ -61,6 +58,15 @@ extern "C" void getLipsiaVersion(char*,size_t);
 #include <omp.h>
 #endif /*_OPENMP*/
 
+/**
+ * Parses the command line parameter for the SVM Type
+ * (C_SVC,NU_SVC,ONE_CLASS,EPSILON_SVR,NU_SVR) and converts it to the
+ * respective enum value from MriSVM 
+ *  
+ *  @param[in]     svm_type C string with command line parameter for SVM type
+ *
+ *  @return enum-equivalent of svm type
+ */
 int parseSvmType(VString svm_type) {
   if (NULL == svm_type)
     return DEFAULT_MRISVM_SVM_TYPE;
@@ -83,6 +89,16 @@ int parseSvmType(VString svm_type) {
 
 }
 
+/**
+ *
+ * Parses  the command line parameter for the SVM Kernel
+ * (LINEAR,POLY,RBF,SIGMOID,PRECOMPUTED() and converts it to the respective enum
+ * value from MriSVM 
+ *   
+ * @param[in]     svm_kernel_type C string with command line parameter for SVM kernel
+ *
+ * @return enum-equivalent of svm kernel
+*/
 int parseSvmKernelType(VString svm_kernel_type) {
   if (NULL == svm_kernel_type)
     return DEFAULT_MRISVM_KERNEL_TYPE;
@@ -150,8 +166,8 @@ int main (int argc,char *argv[]) {
   int number_of_samples = input_filenames.number;
   vector<VImage> *source_images = new vector<VImage>[number_of_samples];
 
-  long int number_of_features = 0;
-  int number_of_features_per_voxel = 0;
+  long int number_of_features       = 0;
+  int number_of_features_per_voxel  = 0;
   VAttrList attribute_list;
   
   cerr << "Reading Image Files" << endl;
@@ -180,8 +196,12 @@ int main (int argc,char *argv[]) {
     VAttrListPosn position;
     int this_number_of_features_per_voxel = 0;
     for (VFirstAttr(attribute_list, &position); VAttrExists(&position); VNextAttr(&position)) {
+      
+      // Skip this VIA attribute, if it is not an image
       if (VGetAttrRepn(&position) != VImageRepn)
         continue;
+      
+      // Retrieve image
       VImage image;
       VGetAttrValue(&position,NULL,VImageRepn,&image);
 
@@ -190,6 +210,7 @@ int main (int argc,char *argv[]) {
       VGetAttr(VImageAttrList(image), "name", NULL, VStringRepn, &name);
       //cerr << "  Name: " << name << endl;
 
+      // Put image into image list of this sample
       source_images[i].push_back(image);
       this_number_of_features_per_voxel++;
       
@@ -223,15 +244,16 @@ int main (int argc,char *argv[]) {
   int number_of_columns = VImageNColumns(source_images[0].front());
 
   sample_3d_array_type sample_features(boost::extents[number_of_samples][number_of_bands][number_of_rows][number_of_columns][number_of_features_per_voxel]);
-  vector <int> classes(number_of_samples);
+  vector <double> classes(number_of_samples);
 
   cerr << "Converting Data into SearchLightSvm Format" << endl;
   boost::progress_display convert_progress(number_of_samples);
   for(int sample_index(0); sample_index < number_of_samples; sample_index++) {
     ++convert_progress;
-    long image_class = DEFAULT_VSVM_IMAGE_CLASS;
+    double image_class = DEFAULT_VSVM_IMAGE_CLASS;
 
-    if(VGetAttr(VImageAttrList(source_images[sample_index].front()), "class", NULL, VLongRepn, &image_class) != VAttrFound) {
+    // Check for svm_class attribute
+    if(VGetAttr(VImageAttrList(source_images[sample_index].front()), "class", NULL, VDoubleRepn, &image_class) != VAttrFound) {
       cerr << "Image does not have class attribute. Using default value (" << DEFAULT_VSVM_IMAGE_CLASS << ")" << endl;
     }
 
@@ -263,9 +285,9 @@ int main (int argc,char *argv[]) {
     exit(-1);
   }
 
-  /***************************
-   * Conduct Searchlight SVM *
-   ***************************/
+  /***************************************
+   * Conduct Searchlight SVM PERMUTATION *
+   **************************************/
 
   //int number_of_permutations = 30;
   cerr << "Number of permutations: " << number_of_permutations << endl;
@@ -278,7 +300,6 @@ int main (int argc,char *argv[]) {
                  number_of_features_per_voxel,
                  sample_features,
                  classes,
-                 radius,
                  extension_band,
                  extension_row,
                  extension_column);
@@ -290,7 +311,7 @@ int main (int argc,char *argv[]) {
     sl.scale();
   }
 
-  SearchLight::PermutationsReturn permutations_return = sl.calculate_permutations(permutated_validities,number_of_permutations);
+  SearchLight::PermutationsReturn permutations_return = sl.calculate_permutations(permutated_validities,number_of_permutations,radius);
   clock_gettime(CLOCK_MONOTONIC,&end);
   long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
   cout << "Execution time: " << execution_time / 1e9 << "s" << endl;
@@ -310,7 +331,6 @@ int main (int argc,char *argv[]) {
     for(int band(0); band < number_of_bands; band++) {
       for(int row(0); row < number_of_rows; row++) {
         for(int column(0); column < number_of_columns; column++) {
-          //VPixel(dest,band,row,column,VShort) = static_cast<short>(round(permutated_validities[band][row][column][permutation_loop] * 100));
           VPixel(dest,band,row,column,VFloat) = permutated_validities[band][row][column][permutation_loop];
         }
       }
@@ -327,11 +347,6 @@ int main (int argc,char *argv[]) {
     VSetAttr(VImageAttrList(dest),"name",NULL,VStringRepn,"Searchlight Permutation");
     VAppendAttr(out_list,"image",NULL,VImageRepn,dest);
     
-    // Now print out md5 and permutation of this one
-    MD5 md5 = MD5();
-    md5.update((unsigned char *) dest->data,dest->nbands * dest->ncolumns * dest->nrows * VRepnSize(VFloatRepn));
-    md5.finalize();
-    cerr << md5.hexdigest() << "\t" << permutation_text.str() << endl;
   }
   
   VWriteFile(out_file, out_list);

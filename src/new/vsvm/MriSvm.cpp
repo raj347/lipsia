@@ -1,10 +1,9 @@
 /**
- * MriSvm.cpp
+ * @file MriSvm.cpp
  *
  *  Created on: 03.04.2012
- *      Author: Tilo Buschmann
- * 
- * Everything in this file screams: Prototype!
+ *  
+ * @author Tilo Buschmann
  * 
  */
 
@@ -20,19 +19,41 @@ using std::cerr;
 using std::cout;
 using std::endl;
 
-/*
+/**
  * A function that does nothing. Used as logging-callback function for libsvm.
  * 
+ * @param[in] s a c-string, not to be printed
+ * 
  */
-
 static void print_nothing(const char *s)
 {
 
 }
 
+/**
+ * Round value
+ * 
+ * @param[in] r value to be rounded
+ * 
+ * @return rounded value
+ */
+double round(double r) {
+    return (r > 0.0) ? floor(r + 0.5) : ceil(r - 0.5);
+}
+
+
+/**
+ * MriSVM implements a connection to libsvm
+ * 
+ * @param[in] sample_features array containing samples and features
+ * @param[in] classes vector containing the classes of samples
+ * @param[in] number_of_samples number of samples
+ * @param[in] number_of_features number of features
+ * 
+ */
 MriSvm::MriSvm(
                 sample_features_array_type  sample_features, 
-                vector<int>                 classes,
+                vector<double>              classes,
                 long int                    number_of_samples,
                 long int                    number_of_features
                ) : 
@@ -44,6 +65,10 @@ MriSvm::MriSvm(
   //printConfiguration();
 }
 
+/**
+ * Destructor that deletes prepared libsvm-data
+ * 
+ */
 MriSvm::~MriSvm() {
   for (int sample_index(0); sample_index < number_of_samples_; sample_index++) {
     delete[] all_data_[sample_index].values;
@@ -52,11 +77,21 @@ MriSvm::~MriSvm() {
   delete[] all_data_;
 }
 
+/**
+ * Initialisation at construction, sets defaults parameters and converts data to libsvm format
+ * 
+ * @param[in] sample_features input data
+ */
 void MriSvm::construct(sample_features_array_type  &sample_features) {
   parameters_ = get_default_parameters();
   prepare_all_data(sample_features);
 }
 
+/**
+ * Prepare input data for use with libsvm
+ * 
+ * @param[in] sample_features input data
+ */
 void MriSvm::prepare_all_data(sample_features_array_type  &sample_features) {
   /* Problem looks this way (e.g. with 6 samples and 3 features):
    * .l = 6
@@ -92,6 +127,10 @@ void MriSvm::prepare_all_data(sample_features_array_type  &sample_features) {
   }
 }
 
+/**
+ * Rescale data to be between -1 and 1 (default)
+ */
+
 void MriSvm::scale() {
   for(long int feature_index(0); feature_index < number_of_features_; feature_index++) {
     // Find range of values of this feature
@@ -118,15 +157,29 @@ void MriSvm::scale() {
   }
 }
 
+/**
+ * Set SVM TYPE to be used
+ * 
+ * @param[in] svm_type  svm type to be used (as defined by libsvm)
+ * 
+ */
 void MriSvm::set_svm_type(int svm_type) {
     parameters_.svm_type = svm_type;
 }
 
+/**
+ * Set SVM KERNEL to be used
+ * 
+ * @param[in] svm_kernel_type svm kernel to be used (as defined by libsvm)
+ * 
+ */
 void MriSvm::set_svm_kernel_type(int svm_kernel_type) {
     parameters_.kernel_type = svm_kernel_type;
 }
 
-
+/**
+ * Print out all member variables
+ */
 void MriSvm::printConfiguration() {
   cout << "MriSvm configuration" << endl;
   cout << "number_of_samples="  << number_of_samples_ << endl;
@@ -176,14 +229,23 @@ void MriSvm::Permutate(permutated_validities_type &permutated_validities,
   return;
 }
 
+/**
+ * Cross validate internally stored data
+ * 
+ * @param[in] leaveout how many samples to be used for testing at any given window
+ */
 float MriSvm::cross_validate(int leaveout) {
   return cross_validate(leaveout,all_data_);
 }
 
-double round(double r) {
-    return (r > 0.0) ? floor(r + 0.5) : ceil(r - 0.5);
-}
-
+/**
+ * Cross validate data_base
+ * 
+ * @param[in] leaveout  How many samples to be used for testing at any given window
+ * @param[in] data_base libsvm data to be used for cross validation
+ * 
+ * @return  cross validity
+ */
 float MriSvm::cross_validate(int leaveout,struct svm_node *data_base) {
   /* Sanity Check */
   if ((number_of_samples_ - leaveout) < 2) {
@@ -200,7 +262,9 @@ float MriSvm::cross_validate(int leaveout,struct svm_node *data_base) {
   trainings_problem.x = new svm_node[number_of_samples_];
   trainings_problem.y = training_classes;
   
-  int total_correct = 0;
+  
+  // Vector containing the predictions, either predicted classes (SVM) or predicted values (SVR)
+  double predictions[number_of_samples_];
   
   // Calculate number of shuffles
   int count = number_of_samples_ / leaveout;
@@ -224,39 +288,67 @@ float MriSvm::cross_validate(int leaveout,struct svm_node *data_base) {
     
     // Predict
     for (int prediction_index = cross_validation_loop; prediction_index < number_of_samples_; prediction_index += count) {
-      double prediction = svm_predict(trained_model,&(data_base[prediction_index]));
-      if (prediction == classes_[prediction_index]) {
-        total_correct++;
-      }
+      predictions[prediction_index] = svm_predict(trained_model,&(data_base[prediction_index]));
     }
     /* Free all that unnecessary stuff */
     svm_free_and_destroy_model(&trained_model);
   }
   delete[] trainings_problem.x;
   
-  return ((float) total_correct / (float) (number_of_samples_));
+  // Calculate score
+  
+  if(parameters_.svm_type == EPSILON_SVR || parameters_.svm_type == NU_SVR) {
+    double total_error = 0.0;
+    
+    for(int sample_index(0);sample_index<number_of_samples_;sample_index++) {
+      double y = classes_[sample_index];
+      double v = predictions[sample_index];
+      total_error += (v-y)*(v-y);
+    }
+    return(total_error/number_of_samples_);
+  } else {
+    int total_correct = 0;
+    for(int sample_index(0);sample_index<number_of_samples_;sample_index++)
+      if(fabs(predictions[sample_index]-classes_[sample_index]) < 0.000001)
+        ++total_correct;
+    return ((float) total_correct / (float) (number_of_samples_));
+  }
+
+  
 }
+
+/**
+ * Returns the default svm parameters
+ * 
+ * @return default svm parameters
+ */
 
 struct svm_parameter MriSvm::get_default_parameters() {
   struct svm_parameter parameters;
 
   parameters.svm_type     = DEFAULT_MRISVM_SVM_TYPE;
   parameters.kernel_type  = DEFAULT_MRISVM_KERNEL_TYPE;
-  parameters.degree       = 3;
-  parameters.gamma        = 1.0/number_of_features_;  // 1/num_features
-  parameters.coef0        = 0;
-  parameters.nu           = 0.5;
-  parameters.cache_size   = 100;
-  parameters.C            = 1;
-  parameters.eps          = 1e-3;
-  parameters.p            = 0.1;
-  parameters.shrinking    = 1;
-  parameters.probability  = 0;
-  parameters.nr_weight    = 0;
-  parameters.weight_label = NULL;
-  parameters.weight       = NULL;
+  parameters.degree       = DEFAULT_MRISVM_DEGREE;
+  parameters.gamma        = DEFAULT_MRISVM_GAMMA;
+  parameters.coef0        = DEFAULT_MRISVM_COEF0;
+  parameters.nu           = DEFAULT_MRISVM_NU;
+  parameters.cache_size   = DEFAULT_MRISVM_CACHE_SIZE;
+  parameters.C            = DEFAULT_MRISVM_C;
+  parameters.eps          = DEFAULT_MRISVM_EPS;
+  parameters.p            = DEFAULT_MRISVM_P;
+  parameters.shrinking    = DEFAULT_MRISVM_SHRINKING;
+  parameters.probability  = DEFAULT_MRISVM_PROBABILITY;
+  parameters.nr_weight    = DEFAULT_MRISVM_NR_WEIGHT;
+  parameters.weight_label = DEFAULT_MRISVM_WEIGHT_LABEL;
+  parameters.weight       = DEFAULT_MRISVM_WEIGHT;
 
   return(parameters);
 
+}
+
+
+void MriSvm::set_parameters(svm_parameter parameters)
+{
+  parameters_ = parameters;
 }
 

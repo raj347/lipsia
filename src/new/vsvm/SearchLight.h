@@ -1,8 +1,8 @@
 /**
- * SearchLight.h
+ * @file SearchLight.h
  *
  *  Created on: 16.04.2012
- *      Author: Tilo Buschmann
+ * @author Tilo Buschmann
  */
 
 #ifndef SEARCHLIGHT_H
@@ -29,7 +29,6 @@
 
 using std::vector;
 
-
 class SearchLight {
 public:
   // Types
@@ -44,7 +43,7 @@ public:
               int number_of_samples,
               int number_of_features_per_voxel,
               sample_3d_array_type sample_features,
-              vector<int> classes,
+              vector<double> classes,
               double extension_band,
               double extension_row,
               double extension_column
@@ -55,13 +54,12 @@ public:
   sample_validity_array_type calculate(double radius);
   PermutationsReturn calculate_permutations(permutated_validities_type &permutated_validities, int number_of_permutations, double radius);
   void scale();
+  void set_parameters(struct svm_parameter);
   
   
 
 private:
   void shuffle(int *array);
-  int generate_permutations_random(int max_number_of_permutations,permutations_array_type &permutations);
-  int generate_permutations_deterministic(int max_number_of_permutations,permutations_array_type &permutations);
   int generate_permutations_minimal(int max_number_of_permutations, permutations_array_type &permutations);
   int generate_permutations(int max_number_of_permutations,permutations_array_type &permutations);
   
@@ -95,7 +93,7 @@ private:
   int      number_of_classes_;
   
   sample_3d_array_type sample_features_;
-  vector <int>  classes_;
+  vector <double>  classes_;
 
   int     svm_type_;
   int     svm_kernel_type_;
@@ -103,6 +101,8 @@ private:
   double  extension_band_,extension_row_,extension_column_;
   
   bool    do_show_progress;
+  
+  struct svm_parameter parameters_;
 
 };
 

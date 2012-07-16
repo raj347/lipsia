@@ -1,10 +1,10 @@
 /**
  * @file vsearchlightsvm.cpp
+ * 
  * Wrapper around SearchLight class to load samples from Vista images, process SearchlightSVM and then write result into another Vista file
  *
- * @author Tilo Buschmann, 2012
+ * @author Tilo Buschmann
  *
- * "I am become death, destroyer of worlds"
  */
 
 // C++ header
@@ -59,14 +59,14 @@ extern "C" void getLipsiaVersion(char*,size_t);
 #endif /*_OPENMP*/
 
 /**
-  Parses the command line parameter for the SVM Type
-("C_SVC","NU_SVC","ONE_CLASS","EPSILON_SVR","NU_SVR") and converts it to the
-respective enum value from MriSVM 
-   
-   @param[in]     svm_type C string with command line parameter for SVM type
-
-   @return enum-equivalent of svm type
-*/
+ * Parses the command line parameter for the SVM Type
+ * (C_SVC,NU_SVC,ONE_CLASS,EPSILON_SVR,NU_SVR) and converts it to the
+ * respective enum value from MriSVM 
+ *  
+ *  @param[in]     svm_type C string with command line parameter for SVM type
+ *
+ *  @return enum-equivalent of svm type
+ */
 int parseSvmType(VString svm_type) {
   if (NULL == svm_type)
     return DEFAULT_MRISVM_SVM_TYPE;
@@ -90,16 +90,17 @@ int parseSvmType(VString svm_type) {
 }
 
 /**
-
-  Parses  the command line parameter for the SVM Kernel
-(LINEAR,POLY,RBF,SIGMOID,PRECOMPUTED() and converts it to the respective enum
-value from MriSVM 
-   
-   @param[in]     svm_kernel_type C string with command line parameter for SVM kernel
-
-   @return enum-equivalent of svm kernel
+ *
+ * Parses  the command line parameter for the SVM Kernel
+ * (LINEAR,POLY,RBF,SIGMOID,PRECOMPUTED) and converts it to the respective enum
+ * value from MriSVM 
+ *   
+ * @param[in]     svm_kernel_type C string with command line parameter for SVM kernel
+ *
+ * @return enum-equivalent of svm kernel
 */
 int parseSvmKernelType(VString svm_kernel_type) {
+  cerr << "Kernel type to be parsed: " << svm_kernel_type << endl;
   if (NULL == svm_kernel_type)
     return DEFAULT_MRISVM_KERNEL_TYPE;
 
@@ -114,14 +115,21 @@ int parseSvmKernelType(VString svm_kernel_type) {
   it = svm_kernel_type_map.find(svm_kernel_type);
 
   if (it == svm_kernel_type_map.end()) {
+    cerr << "Did not find this kernel type" << endl;
     return DEFAULT_MRISVM_KERNEL_TYPE;
   }
 
+  cerr << "Found kernel type: " << it->second << endl;
   return it->second;
 
 }
 
 #ifdef _OPENMP
+/**
+ * Configure OpenMP, if it is used
+ * 
+ * @param[in] nproc number of processing cores to be used
+ */
 void configure_omp(int nproc) {
   int number_of_cores = omp_get_num_procs();
   if (nproc > 0 && nproc < number_of_cores) 
@@ -132,13 +140,12 @@ void configure_omp(int nproc) {
 #endif /*OPENMP */
 
 /**
-Format of input:
-  - One VIA file per subject/sample
-  - One image within VIA file per feature
-  - Same dimensions and attributes for every image, same number of features per sample
-  - SVM class for every sample is given as "class" attribute in first image
-
-*/
+ * Format of input:
+ * - One VIA file per subject/sample
+ * - One image within VIA file per feature
+ * - Same dimensions and attributes for every image, same number of features per sample
+ * - SVM class for every sample is given as "class" attribute in first image
+ */
 int main (int argc,char *argv[]) {
   /********************
    * Initialise Vista *
@@ -152,32 +159,63 @@ int main (int argc,char *argv[]) {
   // Parse command line parameters
 
   // Names of input files containing VIA data
-  static VArgVector input_filenames;
-  VDouble           svm_C           = DEFAULT_MRISVM_C;
-  VDouble           svm_gamma       = DEFAULT_MRISVM_GAMMA;
-  VString           svm_type        = NULL;
-  VString           svm_kernel_type = NULL;
   VDouble           radius          = DEFAULT_SEARCHLIGHT_RADIUS;
   VBoolean          do_scale        = false;
   VShort            nproc           = 4;
+  static VArgVector input_filenames;
+
+  /* 
+   * SVM Parameters
+   */
+  VString           svm_type        = NULL;
+  VString           svm_kernel_type = NULL;
+  VLong             svm_degree      = DEFAULT_MRISVM_DEGREE;
+  VDouble           svm_gamma       = DEFAULT_MRISVM_GAMMA;
+  VDouble           svm_coef0       = DEFAULT_MRISVM_COEF0;
+  VDouble           svm_cache_size  = DEFAULT_MRISVM_CACHE_SIZE;
+  VDouble           svm_eps         = DEFAULT_MRISVM_EPS;
+  VDouble           svm_C           = DEFAULT_MRISVM_C;
+  VDouble           svm_nu          = DEFAULT_MRISVM_NU;
+  VDouble           svm_p           = DEFAULT_MRISVM_P;
 
   FILE *out_file;
 
   static VOptionDescRec program_options[] = {
     {"in",          VStringRepn,  0, &input_filenames, VRequiredOpt, NULL, "Input files" },
-    {"svm_type",    VStringRepn,  1, &svm_type,        VOptionalOpt, NULL, "SVM Type" },
-    {"kernel_type", VStringRepn,  1, &svm_kernel_type, VOptionalOpt, NULL, "Kernel Type" },
-    {"C",           VDoubleRepn,  1, &svm_C,           VOptionalOpt, NULL, "SVM C parameter" },
     {"radius",      VDoubleRepn,  1, &radius,          VOptionalOpt, NULL, "Searchlight Radius (in mm)" },
     {"scale",       VBooleanRepn, 1, &do_scale,        VOptionalOpt, NULL, "Whether to scale data"},
-    {"gamma",       VDoubleRepn,  1, &svm_gamma,       VOptionalOpt, NULL, "SVM gamma parameter" },
-    {"j",           VShortRepn,   1, &nproc,           VOptionalOpt, NULL, "number of processors to use, '0' to use all" }
+    {"j",           VShortRepn,   1, &nproc,           VOptionalOpt, NULL, "number of processors to use, '0' to use all" },
+    {"svm_type",    VStringRepn,  1, &svm_type,        VOptionalOpt, NULL, "SVM Type parameter (C_SVC, NU_SVC, ONE_CLASS, EPSILON_SVR, NU_SVR) " },
+    {"svm_kernel",  VStringRepn,  1, &svm_kernel_type, VOptionalOpt, NULL, "SVM Kernel parameter (LINEAR, POLY, RBF, SIGMOID, PRECOMPUTED)" },
+    {"svm_degree",  VLongRepn,    1, &svm_degree,      VOptionalOpt, NULL, "SVM degree parameter (for POLY kernel)" },
+    {"svm_gamma",   VDoubleRepn,  1, &svm_gamma,       VOptionalOpt, NULL, "SVM gamma parameter (for POLY,RBF, and SIGMOID kernels)" },
+    {"svm_coef0",   VDoubleRepn,  1, &svm_coef0,       VOptionalOpt, NULL, "SVM coef0 parameter (for POLY and SIGMOID)" },
+    {"svm_cache_size",VDoubleRepn,1, &svm_cache_size,  VOptionalOpt, NULL, "SVM cache size parameter (in MByte)" },
+    {"svm_eps",     VDoubleRepn,  1, &svm_eps,         VOptionalOpt, NULL, "SVM eps parameter (stopping criteria)" },
+    {"svm_C",       VDoubleRepn,  1, &svm_C,           VOptionalOpt, NULL, "SVM C parameter (for C_SVC, EPSILON_SVR, and NU_SVR svm types)" },
+    {"svm_nu",      VDoubleRepn,  1, &svm_nu,          VOptionalOpt, NULL, "SVM nu parameter (for NU_SVC, ONE_CLASS, and NU_SVR svm types)" },
+    {"svm_p",       VDoubleRepn,  1, &svm_p,           VOptionalOpt, NULL, "SVM p parameter (for EPSILON_SVR)" }
   };
   VParseFilterCmd(VNumber (program_options),program_options,argc,argv,NULL,&out_file);
 
   // Translate SVM parameter strings to enums
   int svm_type_parsed         = parseSvmType(svm_type);
   int svm_kernel_type_parsed  = parseSvmKernelType(svm_kernel_type);
+  
+  // I build my own SVM paramterset
+  struct svm_parameter parameter = MriSvm::get_default_parameters();
+  parameter.svm_type    = svm_type_parsed;
+  parameter.kernel_type = svm_kernel_type_parsed;
+  parameter.C           = svm_C;
+  parameter.cache_size  = svm_cache_size;
+  parameter.degree      = svm_degree;
+  parameter.gamma       = svm_gamma;
+  parameter.coef0       = svm_coef0;
+  parameter.eps         = svm_eps;
+  parameter.nu          = svm_nu;
+  parameter.p           = svm_p;
+  
+  cerr << "Type: " << parameter.kernel_type << endl;
 
 // Take care of multiprocessing
 #ifdef _OPENMP
@@ -187,7 +225,6 @@ int main (int argc,char *argv[]) {
   /*************************************
    * Read image files and extract data *
    *************************************/
-
 
   int number_of_samples             = input_filenames.number;
   int number_of_voxels              = 0;
@@ -277,15 +314,15 @@ int main (int argc,char *argv[]) {
   sample_3d_array_type sample_features(boost::extents[number_of_samples][number_of_bands][number_of_rows][number_of_columns][number_of_features_per_voxel]);
 
   // Classes vector
-  vector <int> classes(number_of_samples);
+  vector<double> classes(number_of_samples);
 
   cerr << "Converting Data into SearchLightSvm Format" << endl;
   boost::progress_display convert_progress(number_of_samples);
   for(int sample_index(0); sample_index < number_of_samples; sample_index++) {
     ++convert_progress;
-    long image_class = DEFAULT_VSVM_IMAGE_CLASS;
+    double image_class = DEFAULT_VSVM_IMAGE_CLASS;
 
-    if(VGetAttr(VImageAttrList(source_images[sample_index].front()), "class", NULL, VLongRepn, &image_class) != VAttrFound) {
+    if(VGetAttr(VImageAttrList(source_images[sample_index].front()), "class", NULL, VDoubleRepn, &image_class) != VAttrFound) {
       cerr << "Image does not have class attribute. Using default value (" << DEFAULT_VSVM_IMAGE_CLASS << ")" << endl;
     }
 
@@ -334,6 +371,8 @@ int main (int argc,char *argv[]) {
                  extension_row,
                  extension_column);
   
+  sl.set_parameters(parameter);
+  
   /* Measure time */
   struct timespec start,end;
   clock_gettime(CLOCK_MONOTONIC,&start);
@@ -345,7 +384,6 @@ int main (int argc,char *argv[]) {
   sample_validity_array_type validities = sl.calculate(radius);
 
   clock_gettime(CLOCK_MONOTONIC,&end);
-
 
   long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
   cout << "Execution time: " << execution_time / 1e9 << "s" << endl;

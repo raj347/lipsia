@@ -1,7 +1,10 @@
-/*
-** SVM - Support Vector Machines
+/**
+ * 
+ * @file vsvm.cpp
+ * 
+ * SVM - Support Vector Machines
 **
-** Tilo Buschmann, 2012
+** @author Tilo Buschmann
 */
 
 // C++ header
@@ -196,7 +199,7 @@ int main (int argc,char *argv[]) {
 
   sample_features_array_type sample_features(boost::extents[number_of_images][number_of_features]);
 
-  vector <int> classes(number_of_images);
+  vector <double> classes(number_of_images);
 
   cerr << "Converting Data into MriSvm Format" << endl;
   boost::progress_display convert_progress(number_of_images);
@@ -204,8 +207,8 @@ int main (int argc,char *argv[]) {
     ++convert_progress;
     //cerr << "Converting data from image " << sample_index << endl;
 
-    long image_class = DEFAULT_VSVM_IMAGE_CLASS;
-    if(VGetAttr(VImageAttrList(source_images[sample_index]), "class", NULL, VLongRepn, &image_class) != VAttrFound) {
+    double image_class = DEFAULT_VSVM_IMAGE_CLASS;
+    if(VGetAttr(VImageAttrList(source_images[sample_index]), "class", NULL, VDoubleRepn, &image_class) != VAttrFound) {
       cerr << "Image does not have class attribute. Using default value (" << DEFAULT_VSVM_IMAGE_CLASS << ")" << endl;
     }
     classes[sample_index] = image_class;
