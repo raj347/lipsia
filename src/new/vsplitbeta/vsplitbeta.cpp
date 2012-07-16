@@ -1,22 +1,25 @@
-/*
-* vsplitbeta - split betas from a single file
-*
-* Tilo Buschmann, 2012
-*
-*/
+/**
+ * 
+ * @file vsplitbeta.cpp 
+ * 
+ * split betas from images in a single file to single images in single files
+ *
+ * @author Tilo Buschmann
+ *
+ */
 
-// C++ header
+// C++ headers
 #include <iostream>
 #include <iomanip>
 #include <sstream>
 #include <map>
 #include <fstream>
 
-// C header
+// C headers
 #include <stdlib.h>
 #include <stdio.h>
 
-// VIA header
+// VIA headers
 #include <viaio/Vlib.h>
 #include <viaio/VImage.h>
 #include <viaio/mu.h>
@@ -30,10 +33,18 @@ using std::endl;
 
 extern "C" void getLipsiaVersion(char*,size_t);
 
-// Map from beta to class
+/**
+ * Map from "beta" to svm-class
+ */
 typedef std::map<int,int> mapT; 
   
-// My own version of VReadHistory that does not suck as much
+/**
+ * A changed implementation of VReadHistory from VIA, that does not change the original history list when used
+ * 
+ * @param[in] list attribution list of via filename
+ * 
+ * @return  history attributes
+ */
 VAttrList _VReadHistory_(VAttrList *list) { 
   VAttrListPosn posn;
   VAttrList history_list=NULL;
@@ -52,6 +63,13 @@ VAttrList _VReadHistory_(VAttrList *list) {
   return history_list;
 }
 
+/**
+ * Reads the file that contains the information how to map betas to svm-classes
+ * 
+ * @param[in] conversion_file full path of conversion file
+ * @param[out]  conversion_map  conversion map from betas to svm-classes
+ * 
+ */
 void read_parse_conversion_file(VString conversion_file,mapT &conversion_map) {
   std::ifstream file(conversion_file);
   std::string   line;
@@ -67,12 +85,30 @@ void read_parse_conversion_file(VString conversion_file,mapT &conversion_map) {
   file.close();
 }
 
+/**
+ * Tests if image is a BETA-image (i.e. it contains the results of a GLM)
+ * 
+ * @param[in] image VIA images
+ * 
+ * @return true if it is a BETA-image
+ * 
+ */
 bool is_beta_image(VImage &image) {
     VString name;
     VGetAttr(VImageAttrList(image), "name", NULL, VStringRepn, &name);
     return(0 == strcmp(name,"BETA"));
 }
 
+/**
+ * Extract beta from BETA-image and map it to a class 
+ * 
+ * @param[in] image image to process
+ * @param[in] conversion_map conversion map from beta to svm-class
+ * @param[out]  beta learned beta
+ * @param[out]  conversion_value the converted svm-class
+ * 
+ * @return true if mapping was successful
+ */
 bool converte_beta_to_class(VImage &image, mapT &conversion_map, int &beta, int &conversion_value) {
   VShort beta_value;
   VGetAttr(VImageAttrList(image), "beta", NULL, VShortRepn, &beta_value);
@@ -86,12 +122,24 @@ bool converte_beta_to_class(VImage &image, mapT &conversion_map, int &beta, int 
   return true;
 }
 
+/**
+ * Construct the name of the output as: base + "_" + beta + "_" + svm_class + ".v"
+ * 
+ * @param[in] output_base the string with which every filename starts
+ * @param[in] beta  part of the filename
+ * @param[in] svm_class part of the filename
+ * 
+ * @return constructred string as: base + "_" + beta + "_" + svm_class + ".v"
+ */
 std::string construct_filename(VString output_base,int beta,int svm_class) {
   std::stringstream filename_stream;
   filename_stream << output_base << "_" << std::setw(4) << std::setfill('0') << beta << "_" << svm_class << ".v";
   return(filename_stream.str());
 }
 
+/**
+ * Read in single BETA-file and split it up into separate files
+ */
 int main (int argc,char *argv[]) {
   /**************************
    * Initialise Vista Stuff *
@@ -106,20 +154,26 @@ int main (int argc,char *argv[]) {
    * Parse command line parameters *
    *********************************/
   FILE *input_file;
-  VString output_base = NULL; // Extrated images will be stored in files with the name outputbase_betanr_class.v
+  VString output_base     = NULL; // Extrated images will be stored in files with the name outputbase_betanr_class.v
   VString conversion_file = NULL; // The file that contains the conversion beta->class
 
   static VOptionDescRec program_options[] = {
-    {"base", VStringRepn, 1, &output_base, VRequiredOpt, NULL, "basename of extracted images" },
+    {"base", VStringRepn,       1, &output_base,     VRequiredOpt, NULL, "basename of extracted images" },
     {"conversion", VStringRepn, 1, &conversion_file, VRequiredOpt, NULL, "name of conversion file" }
   };
   VParseFilterCmd(VNumber (program_options),program_options,argc,argv,&input_file,NULL);
  
   cerr << "Base filename: " << output_base << endl; 
 
+  /**********************************
+   * Read and parse conversion file *
+   **********************************/
   mapT conversion_map;
   read_parse_conversion_file(conversion_file,conversion_map);
 
+  /***************************************
+   * Read VIA file and go through images *
+   ***************************************/
   VAttrList attribute_list  = VReadFile(input_file, NULL);
   fclose(input_file);
   
@@ -146,13 +200,15 @@ int main (int argc,char *argv[]) {
     if (!converte_beta_to_class(image,conversion_map,beta,svm_class))
       continue;
     
+    // Construct a filename
     std::string filename = construct_filename(output_base,beta,svm_class);
     
+    // Attach a class attribute to this image
     VSetAttr(VImageAttrList(image),"class",NULL,VShortRepn,svm_class);
     
     /*******************************
-      * Save result into vista file *
-      *******************************/
+     * Save result into vista file *
+     *******************************/
     FILE *output_file = fopen(filename.c_str(), "w");
     if (NULL != output_file) {
       
