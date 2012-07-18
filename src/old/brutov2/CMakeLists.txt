@@ -14,8 +14,7 @@ ADD_EXECUTABLE(brutov2
 TARGET_LINK_LIBRARIES(brutov2 ${VIAIO_LIBRARY})
 
 SET_TARGET_PROPERTIES(brutov2
-                      PROPERTIES COMPILE_FLAGS -ansi
-                      LINK_FLAGS -Wl)
+                      PROPERTIES COMPILE_FLAGS -ansi)
 
 INSTALL(TARGETS brutov2
         RUNTIME DESTINATION bin

@@ -15,8 +15,6 @@ ADD_EXECUTABLE(vqview
                PreferenceDialog.cpp MainWindow.cpp ${VQVIEW_MOC})
 TARGET_LINK_LIBRARIES(vqview ${QT_LIBRARIES} lipsia ${VIA_LIBRARY})
 
-SET_TARGET_PROPERTIES(vqview PROPERTIES
-                      LINK_FLAGS -Wl)
 
 INSTALL(TARGETS vqview
         RUNTIME DESTINATION bin

@@ -15,7 +15,6 @@ SET_TARGET_PROPERTIES(lipsia PROPERTIES
                       SOVERSION ${LIPSIA_SHARED_LIB_VERSION}
                       CLEAN_DIRECT_OUTPUT 1
                       COMPILE_FLAGS -ansi
-                      LINK_FLAGS -Wl
                      )
 
 # add the static library target
@@ -27,7 +26,6 @@ SET_TARGET_PROPERTIES(lipsia_static PROPERTIES
                       OUTPUT_NAME "lipsia"
                       CLEAN_DIRECT_OUTPUT 1
                       COMPILE_FLAGS -ansi
-                      LINK_FLAGS -Wl
                      )
 
 # install shared and static libraries

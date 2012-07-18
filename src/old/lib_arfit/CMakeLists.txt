@@ -14,7 +14,6 @@ SET_TARGET_PROPERTIES(arfit PROPERTIES
                       SOVERSION ${LIPSIA_SHARED_LIB_VERSION}
                       CLEAN_DIRECT_OUTPUT 1
                       COMPILE_FLAGS -ansi
-                      LINK_FLAGS -Wl
                      )
 
 # the static library
@@ -24,7 +23,6 @@ SET_TARGET_PROPERTIES(arfit_static PROPERTIES
                       SOVERSION ${LIPSIA_SHARED_LIB_VERSION}
                       CLEAN_DIRECT_OUTPUT 1
                       COMPILE_FLAGS -ansi
-                      LINK_FLAGS -Wl
                       OUTPUT_NAME "arfit"
                      )
 

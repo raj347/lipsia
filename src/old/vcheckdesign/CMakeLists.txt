@@ -10,8 +10,6 @@ ADD_EXECUTABLE(vcheckdesign
 
 TARGET_LINK_LIBRARIES(vcheckdesign ${QT_LIBRARIES} ${FFTW3_FFTW3_LIBRARY} lipsia ${VIA_LIBRARY})
 
-SET_TARGET_PROPERTIES(vcheckdesign PROPERTIES
-                      LINK_FLAGS -Wl)
 
 INSTALL(TARGETS vcheckdesign
         RUNTIME DESTINATION bin

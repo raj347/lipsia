@@ -5,9 +5,6 @@ INCLUDE_DIRECTORIES(${QT_INCLUDE_DIR} ../lib_vlh ../lib_vlh/xpm)
 ADD_EXECUTABLE(vlv vlv.C)
 TARGET_LINK_LIBRARIES(vlv ${QT_LIBRARIES} vlh lipsia ${VIA_LIBRARY})
 
-SET_TARGET_PROPERTIES(vlv PROPERTIES
-                      LINK_FLAGS -Wl)
-
 INSTALL(TARGETS vlv
         RUNTIME DESTINATION bin
         COMPONENT RuntimeLibraries)

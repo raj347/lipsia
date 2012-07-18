@@ -5,8 +5,7 @@ ADD_EXECUTABLE(vmovcorrection2d
 TARGET_LINK_LIBRARIES(vmovcorrection2d lipsia ${VIA_LIBRARY} ${FFTW3_FFTW3_LIBRARY})
 
 SET_TARGET_PROPERTIES(vmovcorrection2d PROPERTIES
-                      COMPILE_FLAGS -ansi
-                      LINK_FLAGS -Wl)
+                      COMPILE_FLAGS -ansi)
 
 INSTALL(TARGETS vmovcorrection2d
         RUNTIME DESTINATION bin
