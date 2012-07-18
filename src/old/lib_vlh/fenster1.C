@@ -214,7 +214,7 @@ void Modal::orderOO( int fe )
   //  fe=fabs(fe)-16;
   //while (fe>12) fe=fe-12;
   fe=fe-20;
-
+	
   if (centralw->rpaint->cline[fe]==0) {
     centralw->rpaint->cline[fe]=1;
     zeige->setItemChecked(ordermenu[fe], TRUE);
