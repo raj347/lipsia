@@ -9,8 +9,6 @@ ADD_EXECUTABLE(vwhiteglm
                whitecov.c)
 TARGET_LINK_LIBRARIES(vwhiteglm lipsia ${VIA_LIBRARY})
 
-SET_TARGET_PROPERTIES(vwhiteglm PROPERTIES
-                      LINK_FLAGS -Wl)
 
 INSTALL(TARGETS vwhiteglm
         RUNTIME DESTINATION bin

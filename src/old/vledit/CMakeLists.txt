@@ -21,9 +21,6 @@ ADD_EXECUTABLE(vledit
 
 TARGET_LINK_LIBRARIES(vledit ${QT_LIBRARIES} ${OPENGL_gl_LIBRARY} lipsia ${VIA_LBIRARY})
 
-SET_TARGET_PROPERTIES(vledit PROPERTIES
-                      LINK_FLAGS -Wl)
-
 INSTALL(TARGETS vledit
         RUNTIME DESTINATION bin
         COMPONENT RuntimeLibraries)

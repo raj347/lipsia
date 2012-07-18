@@ -9,8 +9,6 @@ ADD_EXECUTABLE(vsview
                xv.C CW.C bild1.C attrWin.C preferences.C ${VSVIEW_MOC})
 TARGET_LINK_LIBRARIES(vsview ${QT_LIBRARIES} lipsia ${VIA_LIBRARY})
 
-SET_TARGET_PROPERTIES(vsview PROPERTIES
-                      LINK_FLAGS -Wl)
 
 INSTALL(TARGETS vsview
         RUNTIME DESTINATION bin

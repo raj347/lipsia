@@ -6,8 +6,7 @@ ADD_EXECUTABLE(v2ndlevel v2ndlevel.c Read2ndLevelDesign.c)
 TARGET_LINK_LIBRARIES(v2ndlevel lipsia ${VIA_LIBRARY})
 
 SET_TARGET_PROPERTIES(v2ndlevel
-                      PROPERTIES COMPILE_FLAGS -ansi
-                      LINK_FLAGS -Wl)
+                      PROPERTIES COMPILE_FLAGS -ansi)
 
 INSTALL(TARGETS v2ndlevel
         RUNTIME DESTINATION bin

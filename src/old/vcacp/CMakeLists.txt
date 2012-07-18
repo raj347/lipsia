@@ -6,8 +6,7 @@ TARGET_LINK_LIBRARIES(vcacp lipsia ${VIA_LIBRARY})
 
 # it is very IMPORTANT to provide a directory with double quotes.
 SET_TARGET_PROPERTIES(vcacp PROPERTIES
-                      COMPILE_DEFINITIONS TEMPLATE_FILE="${LIPSIA_INSTALL_RESOURCE_DIR}/vcacp.v"
-                            LINK_FLAGS -Wl)
+                      COMPILE_DEFINITIONS TEMPLATE_FILE="${LIPSIA_INSTALL_RESOURCE_DIR}/vcacp.v")
 
 INSTALL(TARGETS vcacp
         RUNTIME DESTINATION bin

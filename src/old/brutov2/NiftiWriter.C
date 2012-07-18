@@ -527,37 +527,164 @@ namespace nifti
     string _orientation     = slicePackOrientationParameter->getValue(0);
     string _readOrientation = slicePackReadOrientationParameter->getValue(0);
 
-    float* _originalArray;
-    float* _changeAxesArray;
+    float* _originalArray = new float[9];
+    float* _changeAxesArray = new float[9];
 
 
     if(_orientation.compare("axial") == 0 || _orientation.compare("transversal") == 0) {
     	if(_readOrientation.compare("L_R") == 0) {
-    		_originalArray    = (float[]){R11, R12, R13,   R21, R22, R23,   R31, R32, R33}; // axial_R_L / sagittal_A_P
-    		_changeAxesArray  = (float[]){-1.0, 0.0, 0.0,   0.0, 1.0, 0.0,   0.0, 0.0, 1.0}; // axial_R_L
+			_originalArray[0] = R11;
+			_originalArray[1] = R12;
+			_originalArray[2] = R13;
+
+			_originalArray[3] = R21;
+			_originalArray[4] = R22;
+			_originalArray[5] = R23;
+
+			_originalArray[6] = R31;
+			_originalArray[7] = R32;
+			_originalArray[8] = R33;
+
+			_changeAxesArray[0] = -1.0;
+			_changeAxesArray[1] = 0.0;
+			_changeAxesArray[2] = 0.0;
+			
+			_changeAxesArray[3] = 0.0;
+			_changeAxesArray[4] = 1.0;
+			_changeAxesArray[5] = 0.0;
+
+			_changeAxesArray[6] = 0.0;
+			_changeAxesArray[7] = 0.0;
+			_changeAxesArray[8] = 1.0;
     	} else { // A_P
-    		_originalArray    = (float[]){R12, R11, R13,   R22, R21, R23,   R32, R31, R33}; // !!! not tested yet
-    		_changeAxesArray  = (float[]){1.0, 0.0, 0.0,   0.0, 1.0, 0.0,   0.0, 0.0, 1.0}; // !!! not tested yet
+			_originalArray[0] = R12;
+			_originalArray[1] = R11;
+			_originalArray[2] = R13;
+
+			_originalArray[3] = R22;
+			_originalArray[4] = R21;
+			_originalArray[5] = R23;
+
+			_originalArray[6] = R32;
+			_originalArray[7] = R31;
+			_originalArray[8] = R33;
+
+			_changeAxesArray[0] = 1.0;
+			_changeAxesArray[1] = 0.0;
+			_changeAxesArray[2] = 0.0;
+
+			_changeAxesArray[3] = 0.0;
+			_changeAxesArray[4] = 1.0;
+			_changeAxesArray[5] = 0.0;
+
+			_changeAxesArray[6] = 0.0;
+			_changeAxesArray[7] = 0.0;
+			_changeAxesArray[8] = 1.0;
     	}
     }
 
     if(_orientation.compare("sagittal") == 0) {
     	if(_readOrientation.compare("H_F") == 0) {
-    		_originalArray    = (float[]){R12, R11, R13,   R22, R21, R23,   R32, R31, R33}; // sagittal_H_F / coronal_H_F
-    		_changeAxesArray  = (float[]){1.0, 0.0, 0.0,   0.0, -1.0, 0.0,   0.0, 0.0, -1.0}; // sagittal_H_F
-    	} else { // A_P
-       		_originalArray    = (float[]){R11, R12, R13,   R21, R22, R23,   R31, R32, R33}; // axial_R_L / sagittal_A_P
-       	    _changeAxesArray  = (float[]){1.0, 0.0, 0.0,   0.0, 1.0, 0.0,   0.0, 0.0, -1.0}; // sagittal_A_P
+			_originalArray[0] = R12;
+			_originalArray[1] = R11;
+			_originalArray[2] = R13;
+
+			_originalArray[3] = R22;
+			_originalArray[4] = R21;
+			_originalArray[5] = R23;
+
+			_originalArray[6] = R32;
+			_originalArray[7] = R31;
+			_originalArray[8] = R33;
+
+			_changeAxesArray[0] = 1.0;
+			_changeAxesArray[1] = 0.0;
+			_changeAxesArray[2] = 0.0;
+
+			_changeAxesArray[3] = 0.0;
+			_changeAxesArray[4] = -1.0;
+			_changeAxesArray[5] = 0.0;
+
+			_changeAxesArray[6] = 0.0;
+			_changeAxesArray[7] = 0.0;
+			_changeAxesArray[8] = -1.0;
+
+    	} else { // A_
+			_originalArray[0] = R11;
+			_originalArray[1] = R12;
+			_originalArray[2] = R13;
+
+			_originalArray[3] = R21;
+			_originalArray[4] = R22;
+			_originalArray[5] = R23;
+
+			_originalArray[6] = R31;
+			_originalArray[7] = R32;
+			_originalArray[8] = R33;
+
+			_changeAxesArray[0] = 1.0;
+			_changeAxesArray[1] = 0.0;
+			_changeAxesArray[2] = 0.0;
+
+			_changeAxesArray[3] = 0.0;
+			_changeAxesArray[4] = 1.0;
+			_changeAxesArray[5] = 0.0;
+
+			_changeAxesArray[6] = 0.0;
+			_changeAxesArray[7] = 0.0;
+			_changeAxesArray[8] = -1.0;
     	}
     }
 
     if(_orientation.compare("coronal") == 0) {
     	if(_readOrientation.compare("H_F") == 0) {
-    		_originalArray   = (float[]){R12, R11, R13,   R22, R21, R23,   R32, R31, R33}; // sagittal_H_F / coronal_H_F
-    		_changeAxesArray = (float[]){1.0, 0.0, 0.0,   0.0, 1.0, 0.0,   0.0, 0.0, 1.0}; // coronal_H_F
-    	} else { // L_R
-    		_originalArray   = (float[]){R11, R12, R13,   R21, R22, R23,   R31, R32, R33}; // !!! not tested yet
-    		_changeAxesArray = (float[]){1.0, 0.0, 0.0,   0.0, -1.0, 0.0,   0.0, 0.0, 1.0}; // !!! not tested yet
+			_originalArray[0] = R12;
+			_originalArray[1] = R11;
+			_originalArray[2] = R13;
+
+			_originalArray[3] = R22;
+			_originalArray[4] = R21;
+			_originalArray[5] = R23;
+
+			_originalArray[6] = R32;
+			_originalArray[7] = R31;
+			_originalArray[8] = R33;
+
+			_changeAxesArray[0] = 1.0;
+			_changeAxesArray[1] = 0.0;
+			_changeAxesArray[2] = 0.0;
+
+			_changeAxesArray[3] = 0.0;
+			_changeAxesArray[4] = 1.0;
+			_changeAxesArray[5] = 0.0;
+
+			_changeAxesArray[6] = 0.0;
+			_changeAxesArray[7] = 0.0;
+			_changeAxesArray[8] = 1.0;
+    	} else { // L_
+			_originalArray[0] = R11;
+			_originalArray[1] = R12;
+			_originalArray[2] = R13;
+
+			_originalArray[3] = R21;
+			_originalArray[4] = R22;
+			_originalArray[5] = R23;
+
+			_originalArray[6] = R31;
+			_originalArray[7] = R32;
+			_originalArray[8] = R33;
+
+			_changeAxesArray[0] = 1.0;
+			_changeAxesArray[1] = 0.0;
+			_changeAxesArray[2] = 0.0;
+
+			_changeAxesArray[3] = 0.0;
+			_changeAxesArray[4] = -1.0;
+			_changeAxesArray[5] = 0.0;
+
+			_changeAxesArray[6] = 0.0;
+			_changeAxesArray[7] = 0.0;
+			_changeAxesArray[8] = 1.0;
     	}
     }
 

@@ -5,8 +5,7 @@ ADD_EXECUTABLE(vdistortionCorrection
 TARGET_LINK_LIBRARIES(vdistortionCorrection lipsia ${VIA_LIBRARY})
 
 SET_TARGET_PROPERTIES(vdistortionCorrection PROPERTIES
-                      COMPILE_FLAGS -ansi
-                      LINK_FLAGS -Wl)
+                      COMPILE_FLAGS -ansi)
 
 INSTALL(TARGETS vdistortionCorrection
         RUNTIME DESTINATION bin
