@@ -3,6 +3,7 @@
 **
 ** G.Lohmann, Mar 2009
 */
+
 #include <viaio/Vlib.h>
 #include <viaio/VImage.h>
 #include <viaio/mu.h>
@@ -16,6 +17,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <assert.h>
+
+#include <time.h>
 
 #define NSLICES 2000
 
@@ -139,7 +143,7 @@ WriteOutput(VImage src,VImage map,int nslices,int nrows, int ncols, float *ev, i
 
 
 VAttrList
-VECM(VAttrList list,VImage mask,VShort minval,VShort first,VShort length,VShort type)
+VECM(VAttrList list,VImage mask,VShort minval,VShort first,VShort length,VShort type, VString openclSource)
 {
   VAttrList out_list=NULL;
   VAttrListPosn posn;
@@ -263,53 +267,51 @@ VECM(VAttrList list,VImage mask,VShort minval,VShort first,VShort length,VShort 
   memset(A,0,m*sizeof(float));
   size_t progress=0;
 
+
 #pragma omp parallel for shared(progress) private(j) schedule(guided) firstprivate(mat,A)
-  for (i=0; i<n; i++) {
-    if (i%100 == 0) fprintf(stderr," %d00\r",(int)(++progress));
+	for (i=0; i<n; i++) {
+	if (i%100 == 0) fprintf(stderr," %d00\r",(int)(++progress));
 
-    const float *arr1 = gsl_matrix_float_const_ptr(mat,i,0);
-    for (j=0; j<=i; j++) {
+	const float *arr1 = gsl_matrix_float_const_ptr(mat,i,0);
+	for (j=0; j<=i; j++) {
 
-      if (i == j)
-	continue;
+		if (i == j)
+			continue;
 
-      const float *arr2 = gsl_matrix_float_const_ptr(mat,j,0);
-      const double v = Correlation(arr1,arr2,nt);
-      double u = 0;
+		const float *arr2 = gsl_matrix_float_const_ptr(mat,j,0);
+		const double v = Correlation(arr1,arr2,nt);
+		double u = 0;
 
-      /* make positive */
-      switch (type) {
-      case 0:
-	if (v > tiny) u = v;
-	break;
+		/* make positive */
+		switch (type) {
+		case 0:
+			if (v > tiny) u = v;
+				break;
+		case 1:
+			u = v + 1.0f;
+			break;
 
-      case 1:
-	u = v + 1.0f;
-	break;
+		case 2:
+			u = ABS(v);
+			break;
 
-      case 2:
-	u = ABS(v);
-	break;
-
-      default:
-	VError(" illegal type");
-      }
-      if (u < tiny) u = tiny;
-      /*
-	Calculate index in an half matrix.
-	Normaly its column+row*columns, but as columns depends on the row (columns of the row before equals its row number)
-	we have column(j) + row(i) * ( row_before(i-1) +1 )
-	eg: index(3,2) = 2+(3+2+1) (little gauss solved this problem for us - so we can use 2+(3*4)/2 == 2*6)
-      */
-      const size_t k=j+i*(i+1)/2;
-      if (k >= m) VError(" illegal addr k= %d, m= %d",k,m);
-      A[k] = u;
-    }
-  }
+		default:
+			VError(" illegal type");
+		}
+		if (u < tiny) u = tiny;
+		/*
+		Calculate index in an half matrix.
+		Normaly its column+row*columns, but as columns depends on the row (columns of the row before equals its row number)
+		we have column(j) + row(i) * ( row_before(i-1) +1 )
+		eg: index(3,2) = 2+(3+2+1) (little gauss solved this problem for us - so we can use 2+(3*4)/2 == 2*6)
+			*/
+			const size_t k=j+i*(i+1)/2;
+			if (k >= m) VError(" illegal addr k= %d, m= %d",k,m);
+			A[k] = u;
+		}
+	}
   fprintf(stderr," matrix done.\n");
   gsl_matrix_float_free(mat);
- 
-
   /*
   ** eigenvector centrality
   */
@@ -333,6 +335,7 @@ VDictEntry TYPDict[] = {
 int
 main (int argc,char *argv[])
 {
+	
   static VString  filename = "";
   static VShort   first  = 2;
   static VShort   length = 0;
@@ -353,9 +356,9 @@ main (int argc,char *argv[])
   VImage mask=NULL;
   char prg_name[100];
   char ver[100];
-  getLipsiaVersion(ver, sizeof(ver));
-  sprintf(prg_name, "vecm V%s", ver);
-  fprintf(stderr, "%s\n", prg_name);
+//   getLipsiaVersion(ver, sizeof(ver));
+//   sprintf(prg_name, "vecm V%s", ver);
+//   fprintf(stderr, "%s\n", prg_name);
   VParseFilterCmd (VNumber (options),options,argc,argv,&in_file,&out_file);
 
 
@@ -370,7 +373,7 @@ main (int argc,char *argv[])
   for (VFirstAttr (list1, & posn); VAttrExists (& posn); VNextAttr (& posn)) {
     if (VGetAttrRepn (& posn) != VImageRepn) continue;
     VGetAttrValue (& posn, NULL,VImageRepn, & mask);
-    if (VPixelRepn(mask) != VBitRepn && VPixelRepn(mask) != VUByteRepn && VPixelRepn(mask) != VShortRepn) {
+    if (VPixelRepn(mask) != VBitRepn && VPixelRepn(mask) != VUByteRepn && VPixelRepn(mask) != VShortRepn && VPixelRepn(mask) != VSByteRepn) {
       mask = NULL;
       continue;
     }
@@ -386,16 +389,16 @@ main (int argc,char *argv[])
 
   /* omp-stuff */
 #ifdef _OPENMP
-  int num_procs=omp_get_num_procs();
-  if (nproc > 0 && nproc < num_procs) num_procs = nproc;
-  printf("using %d cores\n",(int)num_procs);
-  omp_set_num_threads(num_procs);
+	int num_procs=omp_get_num_procs();
+	if (nproc > 0 && nproc < num_procs) num_procs = nproc;
+	printf("using %d cores\n",(int)num_procs);
+	omp_set_num_threads(num_procs);
 #endif /* _OPENMP */
 
   /*
   ** process
   */
-  out_list = VECM(list,mask,minval,first,length,type);
+  out_list = VECM(list,mask,minval,first,length,type, sourceName);
   VHistory(VNumber(options),options,prg_name,&list,&out_list);
   if (! VWriteFile (out_file, out_list)) exit (1);
   fprintf (stderr, "%s: done.\n", argv[0]);
