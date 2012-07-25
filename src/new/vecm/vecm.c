@@ -19,12 +19,6 @@
 #include <math.h>
 #include <assert.h>
 
-#include <sstream>
-#include <fstream>
-#include <iostream>
-#include <limits>
-#include <CL/cl.h>
-
 #include <time.h>
 
 #define NSLICES 2000
@@ -32,9 +26,7 @@
 #define SQR(x) ((x) * (x))
 #define ABS(x) ((x) > 0 ? (x) : -(x))
 
-extern "C" {
 extern void getLipsiaVersion(char*,size_t);
-}
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -275,96 +267,47 @@ VECM(VAttrList list,VImage mask,VShort minval,VShort first,VShort length,VShort 
   memset(A,0,m*sizeof(float));
   size_t progress=0;
 
-//############################################################################################
-	if( openclSource != "" ) {
-		cl_int errNum;
-		cl_uint numPlatforms;
-		cl_platform_id firstPlatformID;
-		
-		assert( clGetPlatformIDs(1,&firstPlatformID, &numPlatforms ) == CL_SUCCESS );
-		cl_context_properties contextProperties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)firstPlatformID,0 };
-		cl_context context = clCreateContextFromType( contextProperties, CL_DEVICE_TYPE_GPU, NULL, NULL, &errNum );
-		assert( errNum == CL_SUCCESS );
-		cl_device_id *devices;
-		size_t deviceBufferSize = -1;
-		assert( clGetContextInfo(context, CL_CONTEXT_DEVICES,0,NULL, &deviceBufferSize ) == CL_SUCCESS );
-		assert( deviceBufferSize > 0 );
-		devices = new cl_device_id[deviceBufferSize / sizeof(cl_device_id) ];
-		assert(clGetContextInfo(context, CL_CONTEXT_DEVICES, deviceBufferSize, devices, NULL ) == CL_SUCCESS );
-		cl_command_queue commandQueue = clCreateCommandQueue(context, devices[0],0, NULL );
-		assert( commandQueue != NULL );
 
-		std::ifstream kernelFile( openclSource, std::ios::in );
-		std::ostringstream oss;
-		oss << kernelFile.rdbuf();
-		std::string srcStdStr =oss.str();
-		const char *srcStr = srcStdStr.c_str();
-		cl_program program = clCreateProgramWithSource(context,1,(const char**)&srcStr,NULL,NULL);
-		assert( clBuildProgram(program,0,NULL,NULL,NULL,NULL) == CL_SUCCESS );
-		cl_kernel kernel = clCreateKernel(program, "correlationKernel",NULL);
-		assert(kernel != NULL );
-
-		cl_mem clMat = clCreateBuffer(context,CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, sizeof(float) * n * nt, mat->data, NULL );
-		assert( clMat != NULL );
-		cl_mem clResult = clCreateBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR, sizeof(float)*m, A, NULL );
-		assert( clResult != NULL );
-		std::cout << "Matrix size: " <<  (m*sizeof(float) / 1024 / 1024 ) << " mb" << std::endl;
-		const unsigned int _type = type;
-		assert( clSetKernelArg(kernel,0,sizeof(cl_mem), &clMat ) == CL_SUCCESS );
-		assert( clSetKernelArg(kernel,1, sizeof(cl_mem), &clResult) == CL_SUCCESS );
-		assert( clSetKernelArg(kernel,2, sizeof(unsigned int), &nt ) == CL_SUCCESS );
-		assert( clSetKernelArg(kernel,3, sizeof(unsigned int), &_type ) == CL_SUCCESS );
-		assert( clSetKernelArg(kernel,4, sizeof(long), &n ) == CL_SUCCESS );
-
-		size_t globalWorkSize[] = {512,512 };
-		size_t localWorkSize[] = { 64,1 };
-
-		assert( clEnqueueNDRangeKernel( commandQueue, kernel, 2, NULL, globalWorkSize, localWorkSize,0,NULL, NULL ) == CL_SUCCESS );
-		assert(clEnqueueReadBuffer( commandQueue, clResult, CL_TRUE, 0, sizeof(float) * m, A, 0, NULL, NULL ) == CL_SUCCESS);
-
-	} else {
-//############################################################################################
 #pragma omp parallel for shared(progress) private(j) schedule(guided) firstprivate(mat,A)
-		for (i=0; i<n; i++) {
-		if (i%100 == 0) fprintf(stderr," %d00\r",(int)(++progress));
+	for (i=0; i<n; i++) {
+	if (i%100 == 0) fprintf(stderr," %d00\r",(int)(++progress));
 
-		const float *arr1 = gsl_matrix_float_const_ptr(mat,i,0);
-		for (j=0; j<=i; j++) {
+	const float *arr1 = gsl_matrix_float_const_ptr(mat,i,0);
+	for (j=0; j<=i; j++) {
 
-			if (i == j)
-				continue;
+		if (i == j)
+			continue;
 
-			const float *arr2 = gsl_matrix_float_const_ptr(mat,j,0);
-			const double v = Correlation(arr1,arr2,nt);
-			double u = 0;
+		const float *arr2 = gsl_matrix_float_const_ptr(mat,j,0);
+		const double v = Correlation(arr1,arr2,nt);
+		double u = 0;
 
-			/* make positive */
-			switch (type) {
-			case 0:
-				if (v > tiny) u = v;
-					break;
-			case 1:
-				u = v + 1.0f;
+		/* make positive */
+		switch (type) {
+		case 0:
+			if (v > tiny) u = v;
 				break;
+		case 1:
+			u = v + 1.0f;
+			break;
 
-			case 2:
-				u = ABS(v);
-				break;
+		case 2:
+			u = ABS(v);
+			break;
 
-			default:
-				VError(" illegal type");
-			}
-			if (u < tiny) u = tiny;
-			/*
-			Calculate index in an half matrix.
-			Normaly its column+row*columns, but as columns depends on the row (columns of the row before equals its row number)
-			we have column(j) + row(i) * ( row_before(i-1) +1 )
-			eg: index(3,2) = 2+(3+2+1) (little gauss solved this problem for us - so we can use 2+(3*4)/2 == 2*6)
-				*/
-				const size_t k=j+i*(i+1)/2;
-				if (k >= m) VError(" illegal addr k= %d, m= %d",k,m);
-				A[k] = u;
-			}
+		default:
+			VError(" illegal type");
+		}
+		if (u < tiny) u = tiny;
+		/*
+		Calculate index in an half matrix.
+		Normaly its column+row*columns, but as columns depends on the row (columns of the row before equals its row number)
+		we have column(j) + row(i) * ( row_before(i-1) +1 )
+		eg: index(3,2) = 2+(3+2+1) (little gauss solved this problem for us - so we can use 2+(3*4)/2 == 2*6)
+			*/
+			const size_t k=j+i*(i+1)/2;
+			if (k >= m) VError(" illegal addr k= %d, m= %d",k,m);
+			A[k] = u;
 		}
 	}
   fprintf(stderr," matrix done.\n");
@@ -394,7 +337,6 @@ main (int argc,char *argv[])
 {
 	
   static VString  filename = "";
-  static VString sourceName = "";
   static VShort   first  = 2;
   static VShort   length = 0;
   static VShort   type = 1;
@@ -406,8 +348,7 @@ main (int argc,char *argv[])
     {"first",VShortRepn,1,(VPointer) &first,VOptionalOpt,NULL,"first timestep to use"},
     {"length",VShortRepn,1,(VPointer) &length,VOptionalOpt,NULL,"length of time series to use, '0' to use full length"},
     {"type",VShortRepn,1,(VPointer) &type,VOptionalOpt,TYPDict,"type of scaling to make correlations positive"},
-    {"j",VShortRepn,1,(VPointer) &nproc,VOptionalOpt,NULL,"number of processors to use, '0' to use all"},
-    {"source", VStringRepn, 1, (VPointer) &sourceName, VOptionalOpt, NULL, "opencl source file" }
+    {"j",VShortRepn,1,(VPointer) &nproc,VOptionalOpt,NULL,"number of processors to use, '0' to use all"}
   };
   FILE *in_file,*out_file,*fp;
   VAttrList list=NULL,list1=NULL,out_list=NULL;
@@ -448,14 +389,10 @@ main (int argc,char *argv[])
 
   /* omp-stuff */
 #ifdef _OPENMP
-	if( sourceName == "" ) {
-		int num_procs=omp_get_num_procs();
-		if (nproc > 0 && nproc < num_procs) num_procs = nproc;
-		printf("using %d cores\n",(int)num_procs);
-		omp_set_num_threads(num_procs);
-	} else {
-		std::cout << "Using opencl" << std::endl;
-	}
+	int num_procs=omp_get_num_procs();
+	if (nproc > 0 && nproc < num_procs) num_procs = nproc;
+	printf("using %d cores\n",(int)num_procs);
+	omp_set_num_threads(num_procs);
 #endif /* _OPENMP */
 
   /*
