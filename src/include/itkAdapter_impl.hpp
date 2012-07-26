@@ -256,8 +256,7 @@ template<typename TImageITK, typename TOutputISIS> std::list<data::Image> itkAda
 							static_cast<float>( indexOrigin[2] ) ) );
 	tmpChunk.setPropertyAs( "rowVec"     , util::fvector3( static_cast<float>( imageDirection[0][0] ),
 							static_cast<float>( imageDirection[1][0] ),
-							static_cast<float>( imageDirection[2][0] ),
-							0 ) );
+							static_cast<float>( imageDirection[2][0] )) );
 	tmpChunk.setPropertyAs( "columnVec"  , util::fvector3( ( imageDirection[0][1] ),
 							( imageDirection[1][1] ),
 							( imageDirection[2][1] ) ) );

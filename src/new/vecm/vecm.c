@@ -143,7 +143,7 @@ WriteOutput(VImage src,VImage map,int nslices,int nrows, int ncols, float *ev, i
 
 
 VAttrList
-VECM(VAttrList list,VImage mask,VShort minval,VShort first,VShort length,VShort type, VString openclSource)
+VECM(VAttrList list,VImage mask,VShort minval,VShort first,VShort length,VShort type)
 {
   VAttrList out_list=NULL;
   VAttrListPosn posn;
@@ -398,7 +398,7 @@ main (int argc,char *argv[])
   /*
   ** process
   */
-  out_list = VECM(list,mask,minval,first,length,type, sourceName);
+  out_list = VECM(list,mask,minval,first,length,type );
   VHistory(VNumber(options),options,prg_name,&list,&out_list);
   if (! VWriteFile (out_file, out_list)) exit (1);
   fprintf (stderr, "%s: done.\n", argv[0]);
