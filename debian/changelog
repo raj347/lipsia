@@ -1,3 +1,9 @@
+lipsia (2.2.6-1) stable; urgency=low
+
+  * fixed spacing of 0 appeared in the itkAdapter
+
+ -- Lipsia Group (The official Lipsia developer group) <lipsia@cbs.mpg.de>  Thu, 26 Jul 2012 17:26:24 +0100
+
 lipsia (2.2.5-1) stable; urgency=low
 
   * fixed itkAdapter
