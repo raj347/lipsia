@@ -180,9 +180,43 @@ int main (int argc,char *argv[]) {
 
   // Detect empty voxels
   bool voxel_is_empty[number_of_bands][number_of_rows][number_of_columns];
+  if (filter_empty) {
+    for(int band(0); band < number_of_bands; band++) {
+      for(int row(0); row < number_of_rows; row++) {
+        for(int column(0); column < number_of_columns; column++) {
+          voxel_is_empty[band][row][column] = true;
+          for(int sample_index(0); sample_index < number_of_samples; sample_index++) {
+            for(int feature(0); feature < number_of_features_per_voxel; feature++) {
+              VImage this_image = source_images[sample_index][feature];
+              if (VGetPixel(this_image,band,row,column) != 0.0) {
+                voxel_is_empty[band][row][column] = false;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
  
-  outputr << "Class";
   // Header
+  for(int sample_index(0); sample_index < number_of_samples; sample_index++) {
+    outputr << "\t" << "Sample_" << sample_index;
+  }
+  outputr << endl;
+  
+  // Classes
+  outputr << "Class";
+  for(int sample_index(0); sample_index < number_of_samples; sample_index++) {
+    double image_class = DEFAULT_VSVM_IMAGE_CLASS;
+
+    if(VGetAttr(VImageAttrList(source_images[sample_index].front()), "class", NULL, VDoubleRepn, &image_class) != VAttrFound) {
+      cerr << "Image does not have class attribute. Using default value (" << DEFAULT_VSVM_IMAGE_CLASS << ")" << endl;
+    }
+    outputr << "\t" << image_class;
+  }
+  outputr << endl;
+
+/*
   for(int band(0); band < number_of_bands; band++) {
     for(int row(0); row < number_of_rows; row++) {
       for(int column(0); column < number_of_columns; column++) {
@@ -210,37 +244,27 @@ int main (int argc,char *argv[]) {
     }
   }
   outputr << endl;
- 
+*/
+
   // Data
-  vector<double> classes(number_of_samples);
-  boost::progress_display convert_progress(number_of_samples);
-  
-  for(int sample_index(0); sample_index < number_of_samples; sample_index++) {
-    double image_class = DEFAULT_VSVM_IMAGE_CLASS;
-    
-    if(VGetAttr(VImageAttrList(source_images[sample_index].front()), "class", NULL, VDoubleRepn, &image_class) != VAttrFound) {
-      cerr << "Image does not have class attribute. Using default value (" << DEFAULT_VSVM_IMAGE_CLASS << ")" << endl;
-    }
-    
-    outputr << "Sample_" << sample_index << "\t" << image_class;
-    for(int band(0); band < number_of_bands; band++) {
-      for(int row(0); row < number_of_rows; row++) {
-        for(int column(0); column < number_of_columns; column++) {
-          if (!(filter_empty && voxel_is_empty[band][row][column])) {
-            int feature_index = 0;
-            BOOST_FOREACH(VImage image, source_images[sample_index]) {
-              outputr << "\t" << VGetPixel(image,band,row,column);
-              feature_index++;
+  boost::progress_display convert_progress(number_of_bands * number_of_rows * number_of_columns);
+  for(int band(0); band < number_of_bands; band++) {
+    for(int row(0); row < number_of_rows; row++) {
+      for(int column(0); column < number_of_columns; column++) {
+        if (!(filter_empty && voxel_is_empty[band][row][column])) {
+          for (int feature(0); feature < number_of_features_per_voxel; feature++) {
+            outputr << "\"" << band << " " << row << " " << column << " " << feature << "\"";
+            for (int sample_index(0); sample_index < number_of_samples; sample_index++) {
+              VImage this_image = source_images[sample_index][feature];
+              outputr << "\t" << VGetPixel(this_image,band,row,column);
             }
+            outputr << endl;
           }
         }
+        ++convert_progress;
       }
     }
-    // Last row is class
-    outputr << endl;
-    ++convert_progress;
   }
-
   outputr.close();
   delete[] source_images;
 }

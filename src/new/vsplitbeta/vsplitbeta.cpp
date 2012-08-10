@@ -205,6 +205,7 @@ int main (int argc,char *argv[]) {
     
     // Attach a class attribute to this image
     VSetAttr(VImageAttrList(image),"class",NULL,VShortRepn,svm_class);
+    VSetAttr(VImageAttrList(image),"modality",NULL,VStringRepn,"conimg");
     
     /*******************************
      * Save result into vista file *

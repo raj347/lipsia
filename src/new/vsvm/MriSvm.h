@@ -27,7 +27,7 @@
 #define DEFAULT_MRISVM_NU           0.5
 #define DEFAULT_MRISVM_CACHE_SIZE   100
 #define DEFAULT_MRISVM_C            1
-#define DEFAULT_MRISVM_EPS          1e-3
+#define DEFAULT_MRISVM_EPS          0.1
 #define DEFAULT_MRISVM_P            0.1
 #define DEFAULT_MRISVM_SHRINKING    1
 #define DEFAULT_MRISVM_PROBABILITY  0
@@ -42,8 +42,6 @@
 #include "SearchLight.h"
 
 using std::vector;
-
-
 
 class MriSvm {
 public:
@@ -63,6 +61,9 @@ public:
   void    scale();
   float   cross_validate(int leaveout);
   float   cross_validate(int leaveout,struct svm_node *all_data);
+  vector<double>  train_weights();
+  vector<double>  train_weights(struct svm_node *data_base);
+  vector<vector<double> > permutated_weights(int number_of_permutations, permutations_array_type &permutations);
   void    Permutate(permutated_validities_type &permutated_validities,
                        int number_of_permutations,
                        permutations_array_type &permutations,

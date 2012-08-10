@@ -12,6 +12,7 @@
 #include <fstream>
 #include <algorithm>
 #include <vector>
+#include <set>
 
 // C header
 #include <stdio.h>
@@ -340,10 +341,10 @@ sample_validity_array_type SearchLight::calculate(double radius) {
  *
  * @param[in,out] array array to be shuffled
  */
-void SearchLight::shuffle(int *array) {
+void SearchLight::shuffle(vector<int> &array,int n) {
   int j,tmp;
   
-  for (int sample_index(number_of_samples_ - 1); sample_index > 0; sample_index--) {
+  for (int sample_index(n - 1); sample_index > 0; sample_index--) {
     j = rand_int(sample_index + 1);
     tmp = array[j];
     array[j] = array[sample_index];
@@ -360,9 +361,12 @@ void SearchLight::shuffle(int *array) {
  * @return true if it is a good permutation, false otherwise
  */
 
-bool SearchLight::good_permutation(permutations_array_type &permutations, int
-    position,int leaveout) { int count = number_of_samples_ / leaveout; if
-  ((number_of_samples_ % leaveout) != 0) count++;
+bool SearchLight::good_permutation(int number_of_samples,permutations_array_type &permutations, int position,int leaveout) { 
+
+  int count = number_of_samples / leaveout; 
+  
+  if ((number_of_samples % leaveout) != 0) 
+    count++;
   
   for(int cross_validation_loop(1); cross_validation_loop < count; cross_validation_loop++) {
     if (permutations[position][cross_validation_loop] < permutations[position][cross_validation_loop-1])
@@ -379,10 +383,10 @@ bool SearchLight::good_permutation(permutations_array_type &permutations, int
  * @param[in] how many samples will be left out during cross-validation
  *
  */
-void SearchLight::convert_permutation_base(int *permutation,int leaveout) {
-  int count = number_of_samples_ / leaveout;
+void SearchLight::convert_permutation_base(int number_of_samples,vector<int> &permutation, int leaveout) {
+  int count = number_of_samples / leaveout;
   
-  if ((number_of_samples_ % leaveout) != 0)
+  if ((number_of_samples % leaveout) != 0)
     count++;
 
   // Bubble sort, kind of ;)
@@ -390,7 +394,7 @@ void SearchLight::convert_permutation_base(int *permutation,int leaveout) {
     for(int inner(1); inner < (count-outer+1); inner++) {
       if (permutation[inner] < permutation[inner-1]) {
         // Change around at every permutation step
-        for (int prediction_index(inner);prediction_index < number_of_samples_; prediction_index+=count) {
+        for (int prediction_index(inner);prediction_index < number_of_samples; prediction_index+=count) {
           // Nice clean swap
           int tmp                                    = permutation[prediction_index];
           permutation[prediction_index]   = permutation[prediction_index-1];
@@ -407,35 +411,42 @@ void SearchLight::convert_permutation_base(int *permutation,int leaveout) {
  * possible permutations up to a specified maximum. It is a deterministic
  * algorithm, so we cannot consider  this a random drawing
  *
+ * @param[in] number_of_samples number of samples
+ * @param[in] number_of_classes number of classes
  * @param[in] max_number_of_permutations  number of permutations requested
  * @param[out]  permutations array containing all the newly generated permutations
  *
  * @return actual number of permutations generated, might be smaller than the input parameter max_number_of_permutations because we cannot generate as much
  *
+ *
  */
 
-int SearchLight::generate_permutations_minimal(int max_number_of_permutations, permutations_array_type &permutations) {
-  
-  int n = number_of_samples_; 
+int SearchLight::generate_permutations_minimal(int number_of_samples, int number_of_classes, int max_number_of_permutations, permutations_array_type &permutations) {
+  int n = number_of_samples;  // shorter, though less descriptive
+
+  cerr << "Number of Samples: " << n << endl;
+
   int possible_number_of_permutations = static_cast<int>(boost::math::factorial<double>(n) / (boost::math::factorial<double>(n/2)));
-  
+ 
+  cerr << "Possible number of permutations:" << possible_number_of_permutations << endl;
+
   int new_number_of_permutations = std::min(max_number_of_permutations,possible_number_of_permutations);
   
-  cerr << "Creatinig the minimal number of permutations: " << new_number_of_permutations << endl;
-  permutations.resize(boost::extents[new_number_of_permutations][number_of_samples_]);
+  cerr << "Creating the minimal number of permutations: " << new_number_of_permutations << endl;
+  permutations.resize(boost::extents[new_number_of_permutations][n]);
   
-  gsl_permutation *p = gsl_permutation_alloc (number_of_samples_);
+  gsl_permutation *p = gsl_permutation_alloc(n);
   gsl_permutation_init(p); 
   
   boost::progress_display show_progress(new_number_of_permutations);
   int permutation_loop = 0;
   do {
     // Transfer permutation to new position
-    for (int sample_loop(0);sample_loop < number_of_samples_; sample_loop++) {
+    for (int sample_loop(0);sample_loop < n; sample_loop++) {
       permutations[permutation_loop][sample_loop] = gsl_permutation_get(p,sample_loop);
     }
     // If it is good, we use the next one
-    if (good_permutation(permutations,permutation_loop,number_of_classes_)) {
+    if (good_permutation(n,permutations,permutation_loop,number_of_classes)) {
       ++show_progress;
       permutation_loop++;
     }
@@ -457,8 +468,8 @@ int SearchLight::generate_permutations_minimal(int max_number_of_permutations, p
  *
  */
 
-bool SearchLight::are_permutations_equal(permutations_array_type permutations, int position, int * new_permutation) {
-  for (int sample_loop(0); sample_loop < number_of_samples_; sample_loop++) {
+bool SearchLight::are_permutations_equal(int number_of_samples,permutations_array_type permutations, int position, int * new_permutation) {
+  for (int sample_loop(0); sample_loop < number_of_samples; sample_loop++) {
     if (permutations[position][sample_loop] != new_permutation[sample_loop])
       return false;
   }
@@ -474,12 +485,12 @@ bool SearchLight::are_permutations_equal(permutations_array_type permutations, i
  *
  * @return true if permutation is known, false otherwise
  */
-bool SearchLight::is_known_permutation(permutations_array_type permutations, int * new_permutation, int number_of_permutations) {
-    for (int permutation_loop(0); permutation_loop < number_of_permutations; permutation_loop++) {
-      if (are_permutations_equal(permutations,permutation_loop,new_permutation))
-        return true;
-    }
-    return false;
+bool SearchLight::is_known_permutation(int number_of_samples,permutations_array_type permutations, int * new_permutation, int number_of_permutations) {
+  for (int permutation_loop(0); permutation_loop < number_of_permutations; permutation_loop++) {
+    if (are_permutations_equal(number_of_samples,permutations,permutation_loop,new_permutation))
+      return true;
+  }
+  return false;
 }
 
 /**
@@ -502,26 +513,32 @@ bool SearchLight::is_known_permutation(permutations_array_type permutations, int
  * @return number of permutations that were actually generated
  * 
  */
-int SearchLight::generate_permutations(int max_number_of_permutations,permutations_array_type &permutations) {
-  int n = number_of_samples_;
+int SearchLight::generate_permutations(int number_of_samples, int number_of_classes, int max_number_of_permutations,permutations_array_type &permutations) {
+  int n = number_of_samples;
+
+  cerr << "Number of samples" << n << endl;
+
   int possible_number_of_permutations = static_cast<int>(boost::math::factorial<double>(n) / (boost::math::factorial<double>(n/2)));
+
+  if (n > 16)
+    possible_number_of_permutations = INT_MAX;
 
   cerr << "Number of possible permutations: " << possible_number_of_permutations << endl;
   
   // If we want more permutations than possible, we give all possible
   if (max_number_of_permutations >= possible_number_of_permutations) {
     cerr << "Too many permutations requested. Will give all known." << endl;
-    return(generate_permutations_minimal(possible_number_of_permutations,permutations));
+    return(generate_permutations_minimal(n,number_of_classes,possible_number_of_permutations,permutations));
   } else {
     cerr << "I will need to generate a random subset from all possible permutations." << endl;
     // max_number_of_permutations < possible_number_of_permutations
-    permutations.resize(boost::extents[max_number_of_permutations][number_of_samples_]);
+    permutations.resize(boost::extents[max_number_of_permutations][n]);
     
     if (possible_number_of_permutations <= 10000) {
       cerr << "Let me generate all possible permutations and then choose some of them randomly." << endl;
       // Generate all minimal, then draw randomly from them
       permutations_array_type tmp;
-      generate_permutations_minimal(possible_number_of_permutations,tmp);
+      generate_permutations_minimal(n,number_of_classes,possible_number_of_permutations,tmp);
       cerr << "Created " << possible_number_of_permutations << " permutations to choose from." << endl;
       
       // We permutate "possible number of permutations" but take only the first "max_number_of_permutations"
@@ -536,7 +553,7 @@ int SearchLight::generate_permutations(int max_number_of_permutations,permutatio
       for (int permutation_loop(0);permutation_loop < max_number_of_permutations; permutation_loop++) {
         int actual_permutation = gsl_permutation_get(permutation_shuffle,permutation_loop);
         // Copy to actual array
-        for (int sample_loop(0); sample_loop < number_of_samples_; sample_loop++) {
+        for (int sample_loop(0); sample_loop < n; sample_loop++) {
           permutations[permutation_loop][sample_loop] = tmp[actual_permutation][sample_loop];
         }
       }
@@ -548,29 +565,56 @@ int SearchLight::generate_permutations(int max_number_of_permutations,permutatio
     } else {
       cerr << "Getting random permutations, converting them, then seeing if I already had them." << endl;
       // Draw permutations randomly until we have enough 
-      int *shuffle_index = new int[number_of_samples_];
+      //int *shuffle_index = new int[n];
+      vector<int> shuffle_index(n);
       
-      for (int sample_loop(0); sample_loop < number_of_samples_; sample_loop++) {
+      for (int sample_loop(0); sample_loop < n; sample_loop++) {
         shuffle_index[sample_loop] = sample_loop;
       }
       int permutation_loop = 0;
-      
+    
+      std::set< vector<int>, vector_lex_compare > known_permutations;
+
+      boost::progress_display file_progress(max_number_of_permutations);
       do {
-        shuffle(shuffle_index);
-        convert_permutation_base(shuffle_index,number_of_classes_);
-        if (!is_known_permutation(permutations,shuffle_index,permutation_loop)) {
-          for (int sample_loop(0); sample_loop < number_of_samples_; sample_loop++) {
+        struct timespec start,past_shuffle,past_convert,past_known,past_copy,end;
+        clock_gettime(CLOCK_MONOTONIC,&start);
+        shuffle(shuffle_index,n);
+        clock_gettime(CLOCK_MONOTONIC,&past_shuffle);
+        convert_permutation_base(n,shuffle_index,number_of_classes);
+        clock_gettime(CLOCK_MONOTONIC,&past_convert);
+
+        if (!is_known_permutation(n,permutations,shuffle_index,permutation_loop)) {
+          clock_gettime(CLOCK_MONOTONIC,&past_known);
+          //cerr << "Got one!" << endl;
+          for (int sample_loop(0); sample_loop < n; sample_loop++) {
             permutations[permutation_loop][sample_loop] = shuffle_index[sample_loop];
           }
+          clock_gettime(CLOCK_MONOTONIC,&past_copy);
           permutation_loop++;
+          //++file_progress;
+          cerr << permutation_loop << endl;
+        } else {
+          cerr << "Already had it!" << endl;
         }
+        clock_gettime(CLOCK_MONOTONIC,&end);
+        long long int shuffle_time  = (past_shuffle.tv_sec * 1e9 + past_shuffle.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
+        long long int convert_time  = (past_convert.tv_sec * 1e9 + past_convert.tv_nsec) - (past_shuffle.tv_sec * 1e9 + past_shuffle.tv_nsec);
+        long long int known_time    = (past_known.tv_sec * 1e9 + past_known.tv_nsec) - (past_convert.tv_sec * 1e9 + past_convert.tv_nsec);
+        long long int copy_time     = (past_copy.tv_sec * 1e9 + past_copy.tv_nsec) - (past_known.tv_sec * 1e9 + past_known.tv_nsec);
+
+        long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
+        cout << "Execution time: " << execution_time / 1e9 << "s" << endl;
+        cout << "Shuffle time: " << shuffle_time / 1e9 << "s" << endl;
+        cout << "Convert time: " << convert_time / 1e9 << "s" << endl;
+        cout << "Known time: " << known_time / 1e9 << "s" << endl;
+        cout << "Copy time: " << copy_time / 1e9 << "s" << endl;
         
       } while (permutation_loop < max_number_of_permutations);
       delete[] shuffle_index;
     }
     return(max_number_of_permutations);
   }
-
 }
 
 /**
@@ -611,7 +655,7 @@ SearchLight::PermutationsReturn  SearchLight::calculate_permutations(permutated_
    * Generate all permutations at once (in preparation for later paralized work) *
    *******************************************************************************/
   
-  number_of_permutations = generate_permutations(number_of_permutations,permutation_return.permutations);
+  number_of_permutations = generate_permutations(number_of_samples_,number_of_classes_,number_of_permutations,permutation_return.permutations);
   cerr << "New number of permutations: " << number_of_permutations << endl;
   PrintPermutations(number_of_permutations,permutation_return.permutations);
  

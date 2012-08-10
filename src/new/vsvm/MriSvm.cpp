@@ -12,6 +12,15 @@
 
 #include <boost/foreach.hpp>
 
+// GSL headers
+#include <gsl/gsl_rng.h>
+#include <gsl/gsl_randist.h>
+#include <gsl/gsl_permutation.h>
+#include <gsl/gsl_linalg.h>
+#include <gsl/gsl_vector.h>
+#include <gsl/gsl_matrix.h>
+#include <gsl/gsl_blas.h>
+
 #include "MriSvm.h"
 
 using std::ofstream;
@@ -84,6 +93,7 @@ MriSvm::~MriSvm() {
  */
 void MriSvm::construct(sample_features_array_type  &sample_features) {
   parameters_ = get_default_parameters();
+  parameters_.gamma = 1 / number_of_samples_;
   prepare_all_data(sample_features);
 }
 
@@ -133,6 +143,28 @@ void MriSvm::prepare_all_data(sample_features_array_type  &sample_features) {
 
 void MriSvm::scale() {
   for(long int feature_index(0); feature_index < number_of_features_; feature_index++) {
+    // Find mean
+    double sum = 0.0;
+    for (long int sample_index(0); sample_index < number_of_samples_; sample_index++) {
+      sum += all_data_[sample_index].values[feature_index];
+    }
+    double mean = sum/number_of_samples_;
+    // Calculate standard deviation
+    sum = 0.0;
+    for (long int sample_index(0); sample_index < number_of_samples_; sample_index++) {
+      double diff = all_data_[sample_index].values[feature_index] - mean;
+      sum += diff * diff;
+    }
+
+    double sd = sqrt(sum / (number_of_samples_-1));
+
+    // center and scale
+    for (long int sample_index(0); sample_index < number_of_samples_; sample_index++) {
+      all_data_[sample_index].values[feature_index] -= mean;
+      all_data_[sample_index].values[feature_index] /= sd;
+    }
+
+    /*
     // Find range of values of this feature
     double max = DBL_MIN;
     double min = DBL_MAX;
@@ -154,6 +186,7 @@ void MriSvm::scale() {
 
       all_data_[sample_index].values[feature_index] = lower + (upper - lower) * (x - min) / (max - min);
     }
+    */
   }
 }
 
@@ -191,6 +224,27 @@ void MriSvm::printConfiguration() {
     cout << classes_[classes_index] << " ";
   }
   cout << endl;
+}
+
+vector<vector<double> > MriSvm::permutated_weights(int number_of_permutations, permutations_array_type &permutations) {
+  vector<vector<double> > results;
+
+  struct svm_node *data_base = new svm_node[number_of_samples_];
+
+  for (int permutation_loop(0); permutation_loop < number_of_permutations; permutation_loop++) {
+    // Set up a SVM problem with original classes but permutated samples
+    for (int sample_loop(0); sample_loop < number_of_samples_; sample_loop++) {
+      int shuffled_index = permutations[permutation_loop][sample_loop];
+
+      data_base[sample_loop].values = all_data_[shuffled_index].values;
+      data_base[sample_loop].dim    = number_of_features_;
+    }
+    results.push_back(train_weights(data_base));
+  }
+
+  delete[] data_base;
+
+  return results;
 }
 
 /**
@@ -315,6 +369,46 @@ float MriSvm::cross_validate(int leaveout,struct svm_node *data_base) {
   }
 
   
+}
+
+vector<double> MriSvm::train_weights() {
+  return(train_weights(all_data_));
+}
+
+vector<double> MriSvm::train_weights(struct svm_node *data_base) {
+  vector<double> weights(number_of_features_);
+
+  svm_set_print_string_function(print_nothing);
+
+  struct svm_problem  problem;
+  double              classes[number_of_samples_];
+
+  // Prepare
+  problem.x = data_base;
+  problem.y = classes;
+    
+  for(int sample_loop(0); sample_loop < number_of_samples_;sample_loop++) {
+    classes[sample_loop]            = classes_[sample_loop];
+  }
+  problem.l = number_of_samples_;
+
+  // Train
+  struct svm_model    *model = svm_train(&problem,&parameters_);
+
+  // Retrieve weights
+  cout << "Calculating Weights" << endl;
+  for (int i = 0; i < number_of_features_;i++) {
+   double w = 0.0;
+   for (int j = 0; j < number_of_samples_;j++) {
+     w += model->sv_coef[0][j] * model->SV[j].values[i];
+   }
+   weights[i] = w;
+ }
+
+ cout << endl;
+ cout << "Finished calculating weights" << endl;
+
+ return weights;
 }
 
 /**

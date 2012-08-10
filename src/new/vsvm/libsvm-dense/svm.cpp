@@ -2142,6 +2142,7 @@ svm_model *svm_train(const svm_problem *prob, const svm_parameter *param)
 	model->param = *param;
 	model->free_sv = 0;	// XXX
 
+  //printf("Type: %i\n",param->kernel_type);
 	if(param->svm_type == ONE_CLASS ||
 	   param->svm_type == EPSILON_SVR ||
 	   param->svm_type == NU_SVR)

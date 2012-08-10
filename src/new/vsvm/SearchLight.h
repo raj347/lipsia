@@ -29,6 +29,13 @@
 
 using std::vector;
 
+struct vector_lex_compare {
+  bool operator() (const vector<int>& x, const vector<int>& y) const{
+    return std::lexicographical_compare(x.begin(), x.end(), y.begin(), y.end());
+  }
+};
+
+
 class SearchLight {
 public:
   // Types
@@ -51,6 +58,8 @@ public:
 
   virtual ~SearchLight();
   void printConfiguration();
+  static int generate_permutations(int, int, int max_number_of_permutations,permutations_array_type &permutations);
+
   sample_validity_array_type calculate(double radius);
   PermutationsReturn calculate_permutations(permutated_validities_type &permutated_validities, int number_of_permutations, double radius);
   void scale();
@@ -59,14 +68,13 @@ public:
   
 
 private:
-  void shuffle(int *array);
-  int generate_permutations_minimal(int max_number_of_permutations, permutations_array_type &permutations);
-  int generate_permutations(int max_number_of_permutations,permutations_array_type &permutations);
+  static void shuffle(vector <int> &shuffle,int n);
+  static int generate_permutations_minimal(int number_of_samples, int number_of_classes, int max_number_of_permutations, permutations_array_type &permutations);
+  static bool is_known_permutation(int number_of_samples, permutations_array_type permutations, int * new_permutation, int number_of_permutations);
+  static bool are_permutations_equal(int number_of_samples, permutations_array_type permutations, int position, int * new_permutation);
   
-  bool good_permutation(permutations_array_type &permutations, int position,int leaveout);
-  void convert_permutation_base(int *permutation,int leaveout);
-  bool are_permutations_equal(permutations_array_type permutations, int position, int * new_permutation);
-  bool is_known_permutation(permutations_array_type permutations, int * new_permutation, int number_of_permutations);
+  static bool good_permutation(int number_of_samples, permutations_array_type &permutations, int position,int leaveout);
+  static void convert_permutation_base(int number_of_samples, vector<int> &permutation,int leaveout);
   
   void PrintPermutations(int number_of_permutations,permutations_array_type &permutations);
   
