@@ -30,6 +30,7 @@ public:
     int getP();
     matrix_2d getX();
     vector<double> invert(vector <double>);
+    vector<double> invert_permutation(vector< vector<double> > weight_permutations, int feature_index);
 
 private:
     void setX(matrix_2d);

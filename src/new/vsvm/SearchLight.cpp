@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <vector>
 #include <set>
+#include <utility>
 
 // C header
 #include <stdio.h>
@@ -565,7 +566,6 @@ int SearchLight::generate_permutations(int number_of_samples, int number_of_clas
     } else {
       cerr << "Getting random permutations, converting them, then seeing if I already had them." << endl;
       // Draw permutations randomly until we have enough 
-      //int *shuffle_index = new int[n];
       vector<int> shuffle_index(n);
       
       for (int sample_loop(0); sample_loop < n; sample_loop++) {
@@ -575,44 +575,44 @@ int SearchLight::generate_permutations(int number_of_samples, int number_of_clas
     
       std::set< vector<int>, vector_lex_compare > known_permutations;
 
+      cerr << "Starting" << endl;
       boost::progress_display file_progress(max_number_of_permutations);
       do {
-        struct timespec start,past_shuffle,past_convert,past_known,past_copy,end;
-        clock_gettime(CLOCK_MONOTONIC,&start);
         shuffle(shuffle_index,n);
-        clock_gettime(CLOCK_MONOTONIC,&past_shuffle);
         convert_permutation_base(n,shuffle_index,number_of_classes);
-        clock_gettime(CLOCK_MONOTONIC,&past_convert);
+        std::pair<std::set< vector<int>, vector_lex_compare >::iterator,bool> result = known_permutations.insert(shuffle_index);
 
-        if (!is_known_permutation(n,permutations,shuffle_index,permutation_loop)) {
-          clock_gettime(CLOCK_MONOTONIC,&past_known);
-          //cerr << "Got one!" << endl;
-          for (int sample_loop(0); sample_loop < n; sample_loop++) {
-            permutations[permutation_loop][sample_loop] = shuffle_index[sample_loop];
-          }
-          clock_gettime(CLOCK_MONOTONIC,&past_copy);
+        if (result.second) {
           permutation_loop++;
-          //++file_progress;
-          cerr << permutation_loop << endl;
+          ++file_progress;
         } else {
-          cerr << "Already had it!" << endl;
+          cerr << "I knew this element already!" << endl;
         }
-        clock_gettime(CLOCK_MONOTONIC,&end);
-        long long int shuffle_time  = (past_shuffle.tv_sec * 1e9 + past_shuffle.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
-        long long int convert_time  = (past_convert.tv_sec * 1e9 + past_convert.tv_nsec) - (past_shuffle.tv_sec * 1e9 + past_shuffle.tv_nsec);
-        long long int known_time    = (past_known.tv_sec * 1e9 + past_known.tv_nsec) - (past_convert.tv_sec * 1e9 + past_convert.tv_nsec);
-        long long int copy_time     = (past_copy.tv_sec * 1e9 + past_copy.tv_nsec) - (past_known.tv_sec * 1e9 + past_known.tv_nsec);
 
-        long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
-        cout << "Execution time: " << execution_time / 1e9 << "s" << endl;
-        cout << "Shuffle time: " << shuffle_time / 1e9 << "s" << endl;
-        cout << "Convert time: " << convert_time / 1e9 << "s" << endl;
-        cout << "Known time: " << known_time / 1e9 << "s" << endl;
-        cout << "Copy time: " << copy_time / 1e9 << "s" << endl;
-        
       } while (permutation_loop < max_number_of_permutations);
-      delete[] shuffle_index;
+      cerr << "Finished" << endl;
+
+      // Convert set to permutation array
+      std::set< vector<int>, vector_lex_compare >::iterator iter;
+      permutation_loop=0;
+      for (iter = known_permutations.begin(); iter != known_permutations.end(); ++iter) {
+        for (int sample_loop(0); sample_loop < n; sample_loop++) {
+          permutations[permutation_loop][sample_loop] = (*iter)[sample_loop];
+          //cerr << permutations[permutation_loop][sample_loop] << "\t";
+        }
+        // cerr << endl;
+        permutation_loop++;
+      }
     }
+
+/*
+
+    BOOST_FOREACH( permutation_type permutation, known_permutations)
+    {
+      cerr << "Test" << endl;
+    }
+*/
+
     return(max_number_of_permutations);
   }
 }

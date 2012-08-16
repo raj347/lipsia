@@ -67,10 +67,11 @@ int main (int argc,char *argv[]) {
 
   // Parse command line parameters
   static VArgVector input_filenames;
+
   FILE *out_file;
 
   static VOptionDescRec program_options[] = {
-    {"in",          VStringRepn, 0, &input_filenames, VRequiredOpt, NULL, "Input files" }
+    {"in",           VStringRepn, 0, &input_filenames, VRequiredOpt, NULL, "Input files" }
   };
   VParseFilterCmd(VNumber (program_options),program_options,argc,argv,NULL,&out_file);
 
@@ -209,30 +210,11 @@ int main (int argc,char *argv[]) {
   // Convert PC-Weights to Voxel-Weights
   vector<double> voxel_weights = result.invert(weights);
   cout << voxel_weights.size() << endl;
-  int feature_index = 0;
 
-  VImage dest = VCreateImage(number_of_bands,number_of_rows,number_of_columns,VFloatRepn);
-  VFillImage(dest,VAllBands,0);
-  VCopyImageAttrs (source_images[0], dest);
 
-  for(int band(0); band < number_of_bands; band++) {
-    for(int row(0); row < number_of_rows; row++) {
-      for(int column(0); column < number_of_columns; column++) {
-        if (!voxel_is_empty[band][row][column]) {
-          //cout << "Feature index:" << feature_index << endl;
-          VPixel(dest,band,row,column,VFloat) = voxel_weights[feature_index];
-          feature_index++;
-        }
-      }
-    }
-  }
-  VSetAttr(VImageAttrList(dest),"name",NULL,VStringRepn,"PCA SVM");
-  VAttrList out_list = VCreateAttrList();
-  VAppendAttr(out_list,"image",NULL,VImageRepn,dest);
-  //VHistory(VNumber(program_options),program_options,argv[0],&attribute_list,&out_list);
-  VWriteFile(out_file, out_list);
-
-  // Now do the permutations
+  /****************
+   * Permutations *
+   ****************/
   permutations_array_type permutations;
   int actual_permutations = SearchLight::generate_permutations(number_of_images,2,10000,permutations);
 
@@ -240,35 +222,65 @@ int main (int argc,char *argv[]) {
   typedef vector<double> weight_type;
   vector<weight_type> permutated_weights = mrisvm.permutated_weights(actual_permutations,permutations);
   cerr << "Got all weights" << endl;
-  
+  cerr << permutated_weights.size() << endl;
 
-  VAttrList permutation_out_list = VCreateAttrList();
-  //boost::progress_display file_progress(number_of_images);
-  BOOST_FOREACH( weight_type w,permutated_weights ) {
-    VImage permutation_dest = VCreateImage(number_of_bands,number_of_rows,number_of_columns,VFloatRepn);
-    VFillImage(permutation_dest,VAllBands,0);
-    VCopyImageAttrs (source_images[0], permutation_dest);
+  /****************
+   * File writing *
+   ****************/
+  int feature_index = 0;
 
-    int feature_index = 0;
-    for(int band(0); band < number_of_bands; band++) {
-      for(int row(0); row < number_of_rows; row++) {
-        for(int column(0); column < number_of_columns; column++) {
-          if (!voxel_is_empty[band][row][column]) {
-            //cout << "Feature index:" << feature_index << endl;
-            VPixel(permutation_dest,band,row,column,VFloat) = w[feature_index];
-            feature_index++;
+  VImage dest             = VCreateImage(number_of_bands,number_of_rows,number_of_columns,VFloatRepn);
+  VFillImage(dest,VAllBands,0);
+  VCopyImageAttrs (source_images[0], dest);
+
+  VImage permutation_dest = VCreateImage(number_of_bands,number_of_rows,number_of_columns,VFloatRepn);
+  VFillImage(permutation_dest,VAllBands,0);
+  VCopyImageAttrs(source_images[0], permutation_dest);
+
+  for(int band(0); band < number_of_bands; band++) {
+    for(int row(0); row < number_of_rows; row++) {
+      for(int column(0); column < number_of_columns; column++) {
+        if (!voxel_is_empty[band][row][column]) {
+          /****************
+           * Write weight *
+           ****************/
+          VPixel(dest,band,row,column,VFloat) = voxel_weights[feature_index];
+          
+          /*****************
+           * Write z-score *
+           *****************/
+          vector<double> permutated_voxel_weights = result.invert_permutation(permutated_weights, feature_index);
+
+          double sum = 0.0;
+          BOOST_FOREACH( double voxel_weight , permutated_voxel_weights) {
+            sum += voxel_weight;
           }
+          double mean = sum / permutated_voxel_weights.size();
+          double sd = 0.0;
+          BOOST_FOREACH( double voxel_weight , permutated_voxel_weights) {
+            double diff = mean - voxel_weight;
+            sd += diff * diff;
+          }
+          sd = sqrt(sd/(permutated_voxel_weights.size() - 1));
+          double z = (voxel_weights[feature_index] - mean) / sd;
+
+          //double z = 0.0;
+          VPixel(permutation_dest,band,row,column,VFloat) = z;
+
+          feature_index++;
         }
       }
     }
-
-
-    VSetAttr(VImageAttrList(permutation_dest),"name",NULL,VStringRepn,"PCA SVM Permutation");
-    VAppendAttr(permutation_out_list,"image",NULL,VImageRepn,permutation_dest);
   }
-  VWriteFile(out_file, permutation_out_list);
+  VSetAttr(VImageAttrList(dest),"name",NULL,VStringRepn,"PCA SVM Weights");
+  VAttrList out_list = VCreateAttrList();
+  VAppendAttr(out_list,"image",NULL,VImageRepn,dest);
+    
+  VSetAttr(VImageAttrList(permutation_dest),"name",NULL,VStringRepn,"PCA SVM Z");
+  VAppendAttr(out_list,"image",NULL,VImageRepn,permutation_dest);
 
+  //VHistory(VNumber(program_options),program_options,argv[0],&attribute_list,&out_list);
+  VWriteFile(out_file, out_list);
 
-  exit(0);
 }
 

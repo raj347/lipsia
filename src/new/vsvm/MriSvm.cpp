@@ -396,7 +396,7 @@ vector<double> MriSvm::train_weights(struct svm_node *data_base) {
   struct svm_model    *model = svm_train(&problem,&parameters_);
 
   // Retrieve weights
-  cout << "Calculating Weights" << endl;
+  //cout << "Calculating Weights" << endl;
   for (int i = 0; i < number_of_features_;i++) {
    double w = 0.0;
    for (int j = 0; j < number_of_samples_;j++) {
@@ -405,8 +405,8 @@ vector<double> MriSvm::train_weights(struct svm_node *data_base) {
    weights[i] = w;
  }
 
- cout << endl;
- cout << "Finished calculating weights" << endl;
+ //cout << endl;
+ //cout << "Finished calculating weights" << endl;
 
  return weights;
 }

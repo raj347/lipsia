@@ -170,3 +170,25 @@ vector<double> PrComp::invert(vector<double> weight) {
   return inverted_weight;
 }
 
+vector<double> PrComp::invert_permutation(vector< vector<double> > weight_permutations, int feature_index) {
+  // Number of principal components
+  int p = weight_permutations[0].size();
+  //cerr << "Principal components: " << p << endl;
+  // Number of Permutations
+  int permutations = weight_permutations.size();
+  
+  //cerr << "Number of Permutations: " << permutations << endl;
+  //cerr << "Feature index: " << feature_index << endl;
+
+  vector<double> inverted_permutated_voxel_weight(permutations,0.0);
+
+  for (int i = 0; i < permutations; i++) {
+    vector<double> weight = weight_permutations[i];
+    for (int j = 0; j < p; j++) {
+      inverted_permutated_voxel_weight[i] += weight[j] * gsl_matrix_get(rotation_,feature_index,j);
+    }
+  }
+
+  return inverted_permutated_voxel_weight;
+}
+

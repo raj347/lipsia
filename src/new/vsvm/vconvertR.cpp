@@ -57,11 +57,13 @@ int main (int argc,char *argv[]) {
   static VArgVector input_filenames;
   VString output_filename = NULL;
   VBoolean  filter_empty = false;
+  VShort  image_position = 0;
 
   static VOptionDescRec program_options[] = {
-    {"in",  VStringRepn,  0, &input_filenames, VRequiredOpt, NULL, "Input files" },
-    {"out", VStringRepn,  1, &output_filename, VRequiredOpt, NULL, "Output file" },
-    {"filter",VBooleanRepn, 1, &filter_empty,  VOptionalOpt, NULL, "Whether to filter out empty voxels"}
+    {"in",        VStringRepn,  0, &input_filenames, VRequiredOpt, NULL, "Input files" },
+    {"out",       VStringRepn,  1, &output_filename, VRequiredOpt, NULL, "Output file" },
+    {"position",  VShortRepn,   1, &image_position, VRequiredOpt, NULL, "Position of selected Image (0=all)" },
+    {"filter",    VBooleanRepn, 1, &filter_empty,  VOptionalOpt, NULL, "Whether to filter out empty voxels"}
   };
   VParseFilterCmd(VNumber (program_options),program_options,argc,argv,NULL,NULL);
 
@@ -101,26 +103,32 @@ int main (int argc,char *argv[]) {
 
     VAttrListPosn position;
     int this_number_of_features_per_voxel = 0;
+    int image_index = 0;
+
     for (VFirstAttr(attribute_list, &position); VAttrExists(&position); VNextAttr(&position)) {
       if (VGetAttrRepn(&position) != VImageRepn)
         continue;
-      VImage image;
-      VGetAttrValue(&position,NULL,VImageRepn,&image);
+      image_index++;
 
-      // Get name (i.e. what type of image this is)
-      //VString name;
-      //VGetAttr(VImageAttrList(image), "name", NULL, VStringRepn, &name);
-      //cerr << "  Name: " << name << endl;
+      if (0 == image_position || image_index == image_position) {
+        VImage image;
+        VGetAttrValue(&position,NULL,VImageRepn,&image);
 
-      source_images[i].push_back(image);
-      this_number_of_features_per_voxel++;
-      
-      // Get number of features (i.e. bands * rows * columns)
-      int this_number_of_features = VImageNPixels(image);
-      if (0 == number_of_features) {
-        number_of_features = this_number_of_features;
-      } else if (number_of_features != this_number_of_features) {
-        VError("Error: Number of features differs from number of features in previous pictures.");
+        // Get name (i.e. what type of image this is)
+        //VString name;
+        //VGetAttr(VImageAttrList(image), "name", NULL, VStringRepn, &name);
+        //cerr << "  Name: " << name << endl;
+
+        source_images[i].push_back(image);
+        this_number_of_features_per_voxel++;
+
+        // Get number of features (i.e. bands * rows * columns)
+        int this_number_of_features = VImageNPixels(image);
+        if (0 == number_of_features) {
+          number_of_features = this_number_of_features;
+        } else if (number_of_features != this_number_of_features) {
+          VError("Error: Number of features differs from number of features in previous pictures.");
+        }
       }
     }
     
