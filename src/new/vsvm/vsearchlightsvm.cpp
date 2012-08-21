@@ -38,10 +38,7 @@
 #include "MriSvm.h"
 #include "SearchLight.h"
 
-// SVM class to assign, when no other class was given 
-#define DEFAULT_VSVM_IMAGE_CLASS 0
-
-// Some stuff I am using from boost and std lib, implicitly declared
+// Some stuff I am using from boost and std lib, explicitly declared
 using std::cerr;
 using std::cout;
 using std::endl;
@@ -63,7 +60,7 @@ extern "C" void getLipsiaVersion(char*,size_t);
  * (C_SVC,NU_SVC,ONE_CLASS,EPSILON_SVR,NU_SVR) and converts it to the
  * respective enum value from MriSVM 
  *  
- *  @param[in]     svm_type C string with command line parameter for SVM type
+ *  @param[in]  svm_type C string with command line parameter for SVM type
  *
  *  @return enum-equivalent of svm type
  */
@@ -100,7 +97,7 @@ int parseSvmType(VString svm_type) {
  * @return enum-equivalent of svm kernel
 */
 int parseSvmKernelType(VString svm_kernel_type) {
-  cerr << "Kernel type to be parsed: " << svm_kernel_type << endl;
+  //cerr << "Kernel type to be parsed: " << svm_kernel_type << endl;
   if (NULL == svm_kernel_type)
     return DEFAULT_MRISVM_KERNEL_TYPE;
 
@@ -126,7 +123,7 @@ int parseSvmKernelType(VString svm_kernel_type) {
 
 #ifdef _OPENMP
 /**
- * Configure OpenMP, if it is used
+ * Configure OpenMP
  * 
  * @param[in] nproc number of processing cores to be used
  */
@@ -156,13 +153,11 @@ int main (int argc,char *argv[]) {
   getLipsiaVersion(version, sizeof(version));
   cerr << argv[0] << " V" << version << endl;
 
-  // Parse command line parameters
-
   // Names of input files containing VIA data
   VDouble           radius          = DEFAULT_SEARCHLIGHT_RADIUS;
   VBoolean          do_scale        = false;
   VShort            nproc           = 4;
-  static VArgVector input_filenames;
+  static VArgVector input_filenames1,input_filenames2;
 
   /* 
    * SVM Parameters
@@ -181,22 +176,25 @@ int main (int argc,char *argv[]) {
   FILE *out_file;
 
   static VOptionDescRec program_options[] = {
-    {"in",          VStringRepn,  0, &input_filenames, VRequiredOpt, NULL, "Input files" },
-    {"radius",      VDoubleRepn,  1, &radius,          VOptionalOpt, NULL, "Searchlight Radius (in mm)" },
-    {"scale",       VBooleanRepn, 1, &do_scale,        VOptionalOpt, NULL, "Whether to scale data"},
-    {"j",           VShortRepn,   1, &nproc,           VOptionalOpt, NULL, "number of processors to use, '0' to use all" },
-    {"svm_type",    VStringRepn,  1, &svm_type,        VOptionalOpt, NULL, "SVM Type parameter (C_SVC, NU_SVC, ONE_CLASS, EPSILON_SVR, NU_SVR) " },
-    {"svm_kernel",  VStringRepn,  1, &svm_kernel_type, VOptionalOpt, NULL, "SVM Kernel parameter (LINEAR, POLY, RBF, SIGMOID, PRECOMPUTED)" },
-    {"svm_degree",  VLongRepn,    1, &svm_degree,      VOptionalOpt, NULL, "SVM degree parameter (for POLY kernel)" },
-    {"svm_gamma",   VDoubleRepn,  1, &svm_gamma,       VOptionalOpt, NULL, "SVM gamma parameter (for POLY,RBF, and SIGMOID kernels)" },
-    {"svm_coef0",   VDoubleRepn,  1, &svm_coef0,       VOptionalOpt, NULL, "SVM coef0 parameter (for POLY and SIGMOID)" },
-    {"svm_cache_size",VDoubleRepn,1, &svm_cache_size,  VOptionalOpt, NULL, "SVM cache size parameter (in MByte)" },
-    {"svm_eps",     VDoubleRepn,  1, &svm_eps,         VOptionalOpt, NULL, "SVM eps parameter (stopping criteria)" },
-    {"svm_C",       VDoubleRepn,  1, &svm_C,           VOptionalOpt, NULL, "SVM C parameter (for C_SVC, EPSILON_SVR, and NU_SVR svm types)" },
-    {"svm_nu",      VDoubleRepn,  1, &svm_nu,          VOptionalOpt, NULL, "SVM nu parameter (for NU_SVC, ONE_CLASS, and NU_SVR svm types)" },
-    {"svm_p",       VDoubleRepn,  1, &svm_p,           VOptionalOpt, NULL, "SVM p parameter (for EPSILON_SVR)" }
+    {"in1",           VStringRepn, 0, &input_filenames1,VRequiredOpt, NULL, "Input files (class 1)" },
+    {"in2",           VStringRepn, 0, &input_filenames2,VRequiredOpt, NULL, "Input files (class 2)" },
+    {"radius",        VDoubleRepn, 1, &radius,          VOptionalOpt, NULL, "Searchlight Radius (in mm)" },
+    {"scale",         VBooleanRepn,1, &do_scale,        VOptionalOpt, NULL, "Whether to scale data"},
+    {"j",             VShortRepn,  1, &nproc,           VOptionalOpt, NULL, "number of processors to use, '0' to use all" },
+    {"svm_type",      VStringRepn, 1, &svm_type,        VOptionalOpt, NULL, "SVM Type parameter (C_SVC, NU_SVC, ONE_CLASS, EPSILON_SVR, NU_SVR) " },
+    {"svm_kernel",    VStringRepn, 1, &svm_kernel_type, VOptionalOpt, NULL, "SVM Kernel parameter (LINEAR, POLY, RBF, SIGMOID, PRECOMPUTED)" },
+    {"svm_degree",    VLongRepn,   1, &svm_degree,      VOptionalOpt, NULL, "SVM degree parameter (for POLY kernel)" },
+    {"svm_gamma",     VDoubleRepn, 1, &svm_gamma,       VOptionalOpt, NULL, "SVM gamma parameter (for POLY,RBF, and SIGMOID kernels)" },
+    {"svm_coef0",     VDoubleRepn, 1, &svm_coef0,       VOptionalOpt, NULL, "SVM coef0 parameter (for POLY and SIGMOID)" },
+    {"svm_cache_size",VDoubleRepn, 1, &svm_cache_size,  VOptionalOpt, NULL, "SVM cache size parameter (in MByte)" },
+    {"svm_eps",       VDoubleRepn, 1, &svm_eps,         VOptionalOpt, NULL, "SVM eps parameter (stopping criteria)" },
+    {"svm_C",         VDoubleRepn, 1, &svm_C,           VOptionalOpt, NULL, "SVM C parameter (for C_SVC, EPSILON_SVR, and NU_SVR svm types)" },
+    {"svm_nu",        VDoubleRepn, 1, &svm_nu,          VOptionalOpt, NULL, "SVM nu parameter (for NU_SVC, ONE_CLASS, and NU_SVR svm types)" },
+    {"svm_p",         VDoubleRepn, 1, &svm_p,           VOptionalOpt, NULL, "SVM p parameter (for EPSILON_SVR)" }
   };
   VParseFilterCmd(VNumber (program_options),program_options,argc,argv,NULL,&out_file);
+
+  VArgVector  input_filenames[2] = {input_filenames1,input_filenames2};
 
   // Translate SVM parameter strings to enums
   int svm_type_parsed         = parseSvmType(svm_type);
@@ -226,7 +224,10 @@ int main (int argc,char *argv[]) {
    * Read image files and extract data *
    *************************************/
 
-  int number_of_samples             = input_filenames.number;
+  int number_of_class1_samples      = input_filenames1.number;
+  int number_of_class2_samples      = input_filenames2.number;
+
+  int number_of_samples             = number_of_class1_samples + number_of_class2_samples;
   int number_of_voxels              = 0;
   int number_of_features_per_voxel  = 0;
 
@@ -234,16 +235,27 @@ int main (int argc,char *argv[]) {
 
   VAttrList attribute_list;
   
-  cerr << "Reading Image Files" << endl;
+  cerr << "Reading Class 1 Image Files" << endl;
 
-  boost::progress_display file_progress(number_of_samples);
+  int current_class = 0;
+  int file_no       = 0;
+
+  // Classes vector
+  vector<double> classes(number_of_samples);
+
   for(int i(0); i < number_of_samples; i++) {
+    if (i == number_of_class1_samples) {
+      current_class++;
+      cerr << "Reading Class 2 Image Files" << endl;
+      file_no = 0;
+    }
+    classes[i] = current_class;
     /*******************
      * Read VIA file *
      *******************/
-    ++file_progress;
 
-    VStringConst input_filename = ((VStringConst *) input_filenames.vector)[i];
+    VStringConst input_filename = ((VStringConst *) input_filenames[current_class].vector)[file_no];
+    cerr << input_filename << endl;
     FILE *input_file            = VOpenInputFile(input_filename, TRUE);
     attribute_list              = VReadFile(input_file, NULL);
     fclose(input_file);
@@ -295,6 +307,7 @@ int main (int argc,char *argv[]) {
     } else if (number_of_features_per_voxel != this_number_of_features_per_voxel) {
       VError("This file has a different number of images than previous files.");
     }
+    file_no++;
   }
 
   /*****************************
@@ -313,20 +326,10 @@ int main (int argc,char *argv[]) {
   // (four dimensions: number_of_bands * number_of_rows * number_of_columns * number_of_features_per_voxel)
   sample_3d_array_type sample_features(boost::extents[number_of_samples][number_of_bands][number_of_rows][number_of_columns][number_of_features_per_voxel]);
 
-  // Classes vector
-  vector<double> classes(number_of_samples);
-
   cerr << "Converting Data into SearchLightSvm Format" << endl;
   boost::progress_display convert_progress(number_of_samples);
   for(int sample_index(0); sample_index < number_of_samples; sample_index++) {
     ++convert_progress;
-    double image_class = DEFAULT_VSVM_IMAGE_CLASS;
-
-    if(VGetAttr(VImageAttrList(source_images[sample_index].front()), "class", NULL, VDoubleRepn, &image_class) != VAttrFound) {
-      cerr << "Image does not have class attribute. Using default value (" << DEFAULT_VSVM_IMAGE_CLASS << ")" << endl;
-    }
-
-    classes[sample_index] = image_class;
 
     BOOST_FOREACH(VImage image, source_images[sample_index]) {
       int feature_index = 0;

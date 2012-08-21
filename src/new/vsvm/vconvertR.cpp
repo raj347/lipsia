@@ -43,6 +43,30 @@ using std::ofstream;
 
 extern "C" void getLipsiaVersion(char*,size_t);
 
+bool are_coordinates_valid(int band,int row, int column, int number_of_bands, int number_of_rows, int number_of_columns) {
+  return ((band >= 0) && (band < number_of_bands) && (column >= 0) && (column < number_of_columns) && (row >= 0) && (row < number_of_rows));
+}
+
+bool is_voxel_or_surrounding_filled(VImage this_image,int band,int row,int column,int number_of_bands, int number_of_rows, int number_of_columns) {
+  if (VGetPixel(this_image,band,row,column) != 0.0)
+    return true;
+
+  int surrounding = 0;
+  for (int rel_band_index = -1;rel_band_index <= 1; rel_band_index++) {
+    for (int rel_row_index = -1;rel_row_index <= 1; rel_row_index++) {
+      for (int rel_column_index = -1;rel_column_index <= 1; rel_column_index++) {
+        int this_band = band + rel_band_index;
+        int this_row = row + rel_row_index;
+        int this_column = column + rel_column_index;
+
+        if (are_coordinates_valid(this_band,this_row,this_column,number_of_bands,number_of_rows,number_of_columns) && VGetPixel(this_image,this_band,this_row,this_column) != 0.0)
+          surrounding++;
+      }
+    }
+  }
+  return (surrounding > 14);
+}
+
 int main (int argc,char *argv[]) {
   /**************************
    * Initialise Vista Stuff *
@@ -196,7 +220,7 @@ int main (int argc,char *argv[]) {
           for(int sample_index(0); sample_index < number_of_samples; sample_index++) {
             for(int feature(0); feature < number_of_features_per_voxel; feature++) {
               VImage this_image = source_images[sample_index][feature];
-              if (VGetPixel(this_image,band,row,column) != 0.0) {
+              if (is_voxel_or_surrounding_filled(this_image,band,row,column, number_of_bands, number_of_rows, number_of_columns)) {
                 voxel_is_empty[band][row][column] = false;
               }
             }

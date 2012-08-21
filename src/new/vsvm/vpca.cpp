@@ -207,6 +207,8 @@ int main (int argc,char *argv[]) {
   // Get weights
   vector<double> weights = mrisvm.train_weights();
 
+  cerr << "CV: " << mrisvm.cross_validate(2) << endl;
+
   // Convert PC-Weights to Voxel-Weights
   vector<double> voxel_weights = result.invert(weights);
   cout << voxel_weights.size() << endl;

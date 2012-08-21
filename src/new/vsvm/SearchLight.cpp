@@ -585,8 +585,8 @@ int SearchLight::generate_permutations(int number_of_samples, int number_of_clas
         if (result.second) {
           permutation_loop++;
           ++file_progress;
-        } else {
-          cerr << "I knew this element already!" << endl;
+        //} else {
+          //cerr << "I knew this element already!" << endl;
         }
 
       } while (permutation_loop < max_number_of_permutations);
