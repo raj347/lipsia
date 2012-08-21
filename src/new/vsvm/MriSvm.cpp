@@ -1,9 +1,8 @@
 /**
  * @file MriSvm.cpp
  *
- *  Created on: 03.04.2012
- *  
  * @author Tilo Buschmann
+ * @date 03.04.2012
  * 
  */
 

@@ -1,7 +1,45 @@
 /**
  * @file vsearchlightsvm.cpp
  * 
- * Wrapper around SearchLight class to load samples from Vista images, process SearchlightSVM and then write result into another Vista file
+ * Wrapper around SearchLight class to load samples from Vista images, process
+ * SearchlightSVM and then write result into another Vista file
+ *
+ * Usage:
+ *  vsearchlightsvm -in1 class1samples.v -in2 class2samples.v [-radius radius] [-scale true|false] [-j nprocs] [svm options]
+ *
+ *  options:
+ *    -in1 class1samples.v
+ *      Input files (class 1)
+ *    -in2 class2samples.v
+ *      Input files (class 2)
+ *    -radius radius
+ *      Searchlight Radius (in mm)
+ *    -scale true|false
+ *      Whether to scale data
+ *    -j nprocs
+ *      number of processors to use, '0' to use all
+ *
+ *  svm options:
+ *    -svm_type C_SVC | NU_SVC | ONE_CLASS | EPSILON_SVR | NU_SVR
+ *      Type parameter
+ *    -svm_kernel LINEAR | POLY | RBF | SIGMOID | PRECOMPUTED
+ *      Kernel parameter
+ *    -svm_degree degree
+ *      degree parameter (for POLY kernel)
+ *    -svm_gamma gamma
+ *      gamma parameter (for POLY,RBF, and SIGMOID kernels)
+ *    -svm_coef0 coef0
+ *      coef0 parameter (for POLY and SIGMOID)
+ *    -svm_cache_size cache_size
+ *      cache size parameter (in MByte)
+ *    -svm_eps epsilon
+ *      epsilon parameter (stopping criteria)
+ *    -svm_C C
+ *      C parameter (for C_SVC, EPSILON_SVR, and NU_SVR svm types)
+ *    -svm_nu nu
+ *      nu parameter (for NU_SVC, ONE_CLASS, and NU_SVR svm types)
+ *    -svm_p p
+ *      p parameter (for EPSILON_SVR)
  *
  * @author Tilo Buschmann
  *
@@ -192,7 +230,7 @@ int main (int argc,char *argv[]) {
     {"svm_nu",        VDoubleRepn, 1, &svm_nu,          VOptionalOpt, NULL, "SVM nu parameter (for NU_SVC, ONE_CLASS, and NU_SVR svm types)" },
     {"svm_p",         VDoubleRepn, 1, &svm_p,           VOptionalOpt, NULL, "SVM p parameter (for EPSILON_SVR)" }
   };
-  VParseFilterCmd(VNumber (program_options),program_options,argc,argv,NULL,&out_file);
+  VParseFilterCmd(VNumber(program_options),program_options,argc,argv,NULL,&out_file);
 
   VArgVector  input_filenames[2] = {input_filenames1,input_filenames2};
 
@@ -202,6 +240,7 @@ int main (int argc,char *argv[]) {
   
   // I build my own SVM paramterset
   struct svm_parameter parameter = MriSvm::get_default_parameters();
+
   parameter.svm_type    = svm_type_parsed;
   parameter.kernel_type = svm_kernel_type_parsed;
   parameter.C           = svm_C;
@@ -215,19 +254,18 @@ int main (int argc,char *argv[]) {
   
   cerr << "Type: " << parameter.kernel_type << endl;
 
-// Take care of multiprocessing
 #ifdef _OPENMP
- configure_omp(nproc); 
+  // Take care of multiprocessing
+  configure_omp(nproc); 
 #endif /*OPENMP */
 
   /*************************************
    * Read image files and extract data *
    *************************************/
 
-  int number_of_class1_samples      = input_filenames1.number;
-  int number_of_class2_samples      = input_filenames2.number;
+  int number_of_class_samples[2]    = {input_filenames1.number, input_filenames1.number};
+  int number_of_samples             = input_filenames1.number+input_filenames1.number;
 
-  int number_of_samples             = number_of_class1_samples + number_of_class2_samples;
   int number_of_voxels              = 0;
   int number_of_features_per_voxel  = 0;
 
@@ -235,79 +273,74 @@ int main (int argc,char *argv[]) {
 
   VAttrList attribute_list;
   
-  cerr << "Reading Class 1 Image Files" << endl;
-
-  int current_class = 0;
-  int file_no       = 0;
-
   // Classes vector
   vector<double> classes(number_of_samples);
 
-  for(int i(0); i < number_of_samples; i++) {
-    if (i == number_of_class1_samples) {
-      current_class++;
-      cerr << "Reading Class 2 Image Files" << endl;
-      file_no = 0;
-    }
-    classes[i] = current_class;
-    /*******************
-     * Read VIA file *
-     *******************/
+  int sample_position = 0;
 
-    VStringConst input_filename = ((VStringConst *) input_filenames[current_class].vector)[file_no];
-    cerr << input_filename << endl;
-    FILE *input_file            = VOpenInputFile(input_filename, TRUE);
-    attribute_list              = VReadFile(input_file, NULL);
-    fclose(input_file);
-
-    /**********************
-     * Analyse attributes *
-     **********************/
-
-    if(!attribute_list)
-      VError("Error reading image");
-
-    VAttrListPosn position;
-    int this_number_of_features_per_voxel = 0;
-
-    // Walk through all images in this file
-    for (VFirstAttr(attribute_list, &position); VAttrExists(&position); VNextAttr(&position)) {
-      // Skip attribute if it is not an image
-      if (VGetAttrRepn(&position) != VImageRepn)
-        continue;
-
-      // Extract image
-      VImage image;
-      VGetAttrValue(&position,NULL,VImageRepn,&image);
-
-      // Put it into the image vector of this sample and increase number of features per voxel for this sample
-      source_images[i].push_back(image);
-      this_number_of_features_per_voxel++;
-  
-      /*************************
-       * Consistency check (1) *
-       *************************/
-      // Get number of voxels (i.e. bands * rows * columns)
-      int this_number_of_voxels = VImageNPixels(image);
-      if (0 == number_of_voxels) {
-        number_of_voxels = this_number_of_voxels;
-      } else if (number_of_voxels != this_number_of_voxels) {
-        VError("Error: Number of features differs from number of features in previous pictures.");
-      }
-    }
-
-    /***************************
-     * Consistency check (2+3) *
-     ***************************/
-    if (this_number_of_features_per_voxel == 0) 
-      VError("No input image found");
+  for (int current_class(0); current_class <= 1;current_class++) {
+    cerr << "Reading class " << current_class + 1 << " image files" << endl;
+    for (int file_no(0); file_no < number_of_class_samples[current_class] ; file_no++) {
+      classes[sample_position] = current_class;
     
-    if (number_of_features_per_voxel == 0) {
-      number_of_features_per_voxel = this_number_of_features_per_voxel;
-    } else if (number_of_features_per_voxel != this_number_of_features_per_voxel) {
-      VError("This file has a different number of images than previous files.");
+      /*******************
+       * Read VIA file *
+       *******************/
+      VStringConst input_filename = ((VStringConst *) input_filenames[current_class].vector)[file_no];
+      cerr << input_filename << endl;
+      FILE *input_file            = VOpenInputFile(input_filename, TRUE);
+      attribute_list              = VReadFile(input_file, NULL);
+      fclose(input_file);
+      
+      if(!attribute_list)
+        VError("Error reading image");
+    
+      /**********************
+       * Analyse attributes *
+       **********************/
+
+      VAttrListPosn position;
+      int this_number_of_features_per_voxel = 0;
+
+      // Walk through all images in this file
+      for (VFirstAttr(attribute_list, &position); VAttrExists(&position); VNextAttr(&position)) {
+        // Skip attribute if it is not an image
+        if (VGetAttrRepn(&position) != VImageRepn)
+          continue;
+
+        // Extract image
+        VImage image;
+        VGetAttrValue(&position,NULL,VImageRepn,&image);
+
+        // Put it into the image vector of this sample and increase number of features per voxel for this sample
+        source_images[sample_position].push_back(image);
+        this_number_of_features_per_voxel++;
+
+        /*************************
+         * Consistency check (1) *
+         *************************/
+        // Get number of voxels (i.e. bands * rows * columns)
+        int this_number_of_voxels = VImageNPixels(image);
+        if (0 == number_of_voxels) {
+          number_of_voxels = this_number_of_voxels;
+        } else if (number_of_voxels != this_number_of_voxels) {
+          VError("Error: Number of features differs from number of features in previous pictures.");
+        }
+      }
+      /***************************
+       * Consistency check (2+3) *
+       ***************************/
+      if (this_number_of_features_per_voxel == 0)
+        VError("No input image found");
+
+      if (number_of_features_per_voxel == 0) {
+        number_of_features_per_voxel = this_number_of_features_per_voxel;
+      } else if (number_of_features_per_voxel != this_number_of_features_per_voxel) {
+        VError("This file has a different number of images than previous files.");
+      }
+
+      sample_position++;
     }
-    file_no++;
   }
 
   /*****************************
