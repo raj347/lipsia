@@ -37,17 +37,32 @@ open OUTPUT_CONVERSION,">",$out_conversion  or die $!;
 
 my $next_input_name = 1;
 
+my @class_to_inputname;
+my @class_to_aggr;
+
 while (<INPUT_DESIGN>) {
   if (/^\s*\%/ || /^\s*$/) {
     # Comment or empty
     print OUTPUT_DESIGN;
   } else {
-    # Entry
+    # Dissect entry
     chomp;
     my ($class,$time,$duration,$intensity) = split /\t/;  
-    print OUTPUT_DESIGN "$next_input_name\t$time\t$duration\t$intensity\n";
-    print OUTPUT_CONVERSION "$next_input_name\t$class\n";
-    $next_input_name++;
+    my $target_name;
+
+    # Set default values, if they do not exist yet
+    $class_to_aggr[$class]      = 0                 if !exists $class_to_aggr[$class];
+    $class_to_inputname[$class] = $next_input_name  if !exists $class_to_inputname[$class];
+
+    # Find a new value if we are at the start for this aggregation cycle
+    if ($class_to_aggr[$class] == 0) {
+      $class_to_inputname[$class] = $next_input_name;
+      print OUTPUT_CONVERSION "$next_input_name\t$class\n";
+      $next_input_name++;
+    }
+    $class_to_aggr[$class] = ($class_to_aggr[$class] + 1) % $aggr;
+    $target_name = $class_to_inputname[$class];
+    print OUTPUT_DESIGN "$target_name\t$time\t$duration\t$intensity\n";
   }
 }
 
