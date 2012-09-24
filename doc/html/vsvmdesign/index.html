@@ -1,0 +1,91 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html>
+  <head>
+    <title>Lipsia - Statistical evaluation</title>
+<link href="../css/style.css" type="text/css" rel="stylesheet" />    
+</head>
+<body>
+
+<a href="../index.html" class="home">table of contents</a>
+<div class="toptitle">LIPSIA &nbsp;&nbsp;&nbsp; Generate a design file for &ldquo;single subject samples&rdquo; </div>
+
+
+<div class="headtitle">vsvmdesign.pl</div>
+
+<div class="content">
+
+	<p> The program takes a classical design file that specifies the trials
+	in a block design experiment and generates a design file that separates
+	each trial (or an aggregation of trials). For example, if a scan is a
+	sequence of trials A, B, A, B, A, B, A, B and we want to separate
+	trials, the new design file will specify trials A1, B1, A2, B2, A3, B3,
+	A4, B4.  This new design file is helpful to run a GLM analysis on the
+	subject scan to get one beta per trial.</p> 
+
+	<p> If aggregation is desired, two or more trials are aggregated to one
+	sample-trial, e.g. for the previous example and an aggregation of two
+	trials, the new design file will specify: A1, B1, A1, B1, A2, B2, A2,
+	B2.</p>
+
+	<p> The output of the program is the new design file and a conversion
+	file that contains the mapping from the new trial to the original 
+	classification (e.g. for the previous example this would be A1 &rarr; A,
+	A2 &rarr; A, A3 &rarr; A, B1 &rarr; B, B2 &rarr; B, B3 &rarr; B).</p>
+
+<br/>
+
+<p><tt><b>
+		<a href="#vsvmdesign_parameters"><u>vsvmdesign.pl</u></a> [-out_design new_design_file] [-out_conversion conversion_file] [-aggregate aggregate] design_file
+</b></tt></p> 
+
+<br/>
+
+</div>
+
+<div class="subtitle">Example for calling 'vsvmdesign.pl'</div>
+
+<div class="content">
+	<p>Example 1<p>
+<p><tt><b><a href="#vsvmdesign_parameters"><u>vsvmdesign.pl</u></a> -out_design design_single.txt -out_conversion conversion.txt -aggregate 4 design.txt</b></tt></p> 
+
+<p>The example takes the design file <a href="design.txt">design.txt</a> and generates <a href="design_single.txt">design_single.txt</a> and <a href="conversion.txt">conversion.txt</a> where it aggregates two trials to one sample</p>
+
+<p>Example 2:</p>
+<p><tt><b><a href="../vsvmdesign/index.html"><u>vsvmdesign.pl</u></a> design.txt -out_design design_single.txt -out_conversion conversion.txt</b></tt></p>
+<p><tt><b><a href="../vgendesign/index.html"><u>vgendesign</u></a> -in design_single.txt -out design_single.v -tr 1 -ntimesteps 1200 -deriv 0</b></tt></p>
+<p><tt><b><a href="../vcolorglm/index.html"><u>vcolorglm</u></a> -in ntbsm_data.v -design design_single.v -out beta_single.v -minval 200</b></tt></p>
+
+<p>This example is the full pipeline for conducting a GLM on a single subject. We generate a design that separates the trials and then we run a GLM analysis on the subject scan. The output file beta_single.v contains as many images as there were trials in the original scan.</p>
+
+<br/> </div>
+
+<div class="headtitle" id="vsvmdesign_parameters">Parameters of 'vsvmdesign.pl':</div>
+
+<div class="content">
+<b>General Options:</b>
+<dl>
+	<dt>-out_design new_design_file</dt>
+		<dd>Name of the output design file (default: design_single.txt)</dd>
+	<dt>-out_conversion conversion_file</dt>
+		<dd>Name of the output conversion file (default: conversion.txt)</dd>
+	<dt>-aggregate aggregate</dt>
+		<dd>How many trials to aggregate (default: 1)</dd>
+ </dl>
+
+</div>
+
+<br>
+<hr class="hr" />
+
+<A href="http://www.cbs.mpg.de/index.html"><img src="../images/minerva.bmp" border="0" style="margin-right:4px" align="left"></a>
+
+
+<FONT style="font-family:Arial, Helvetica; font-size:8pt;"> 
+Max Planck Institute for Human Cognitive and Brain Sciences. Further Information:
+<A href="mailto:lipsia@cbs.mpg.de">lipsia@cbs.mpg.de</A>
+<BR>Copyright &copy; 2007 Max Planck Institute for Human Cognitive and Brain Sciences.
+All rights reserved.
+
+<br><br>
+
+</BODY></HTML>

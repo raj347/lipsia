@@ -91,7 +91,7 @@ MriSvm::~MriSvm() {
  * @param[in] sample_features input data
  */
 void MriSvm::construct(sample_features_array_type  &sample_features) {
-  parameters_ = get_default_parameters();
+  parameters_       = get_default_parameters();
   parameters_.gamma = 1 / number_of_samples_;
   prepare_all_data(sample_features);
 }
@@ -137,7 +137,7 @@ void MriSvm::prepare_all_data(sample_features_array_type  &sample_features) {
 }
 
 /**
- * Rescale data to be between -1 and 1 (default)
+ * Rescale data to be in the distribution N(0,1)
  */
 
 void MriSvm::scale() {
@@ -162,30 +162,6 @@ void MriSvm::scale() {
       all_data_[sample_index].values[feature_index] -= mean;
       all_data_[sample_index].values[feature_index] /= sd;
     }
-
-    /*
-    // Find range of values of this feature
-    double max = DBL_MIN;
-    double min = DBL_MAX;
-    for (long int sample_index(0); sample_index < number_of_samples_; sample_index++) {
-      double x = all_data_[sample_index].values[feature_index];
-      if (x < min) {
-        min = x;
-      }
-      if (x > max) {
-        max = x;
-      }
-    }
-
-    // Scale
-    for (long int sample_index(0); sample_index < number_of_samples_; sample_index++) {
-      double x = all_data_[sample_index].values[feature_index];
-      double lower = DEFAULT_MRISVM_SCALE_LOWER;
-      double upper = DEFAULT_MRISVM_SCALE_UPPER;
-
-      all_data_[sample_index].values[feature_index] = lower + (upper - lower) * (x - min) / (max - min);
-    }
-    */
   }
 }
 
@@ -210,7 +186,7 @@ void MriSvm::set_svm_kernel_type(int svm_kernel_type) {
 }
 
 /**
- * Print out all member variables
+ * Print out all member variables (used for debugging)
  */
 void MriSvm::printConfiguration() {
   cout << "MriSvm configuration" << endl;
@@ -225,10 +201,19 @@ void MriSvm::printConfiguration() {
   cout << endl;
 }
 
-vector<vector<double> > MriSvm::permutated_weights(int number_of_permutations, permutations_array_type &permutations) {
-  vector<vector<double> > results;
+/**
+ * Calculate SVM weights for a number of permutations
+ *
+ * @param[in] number_of_permutations number of permutations
+ * @param[in] permutations array containing all permutations
+ * 
+ * @return one vector of weights per permutation
+ */
 
+void MriSvm::permutated_weights(boost::multi_array<double, 2> &weight_matrix, int number_of_permutations, permutations_array_type &permutations) {
   struct svm_node *data_base = new svm_node[number_of_samples_];
+
+  boost::multi_array<double, 1> weights(boost::extents[number_of_features_]);
 
   for (int permutation_loop(0); permutation_loop < number_of_permutations; permutation_loop++) {
     // Set up a SVM problem with original classes but permutated samples
@@ -238,20 +223,27 @@ vector<vector<double> > MriSvm::permutated_weights(int number_of_permutations, p
       data_base[sample_loop].values = all_data_[shuffled_index].values;
       data_base[sample_loop].dim    = number_of_features_;
     }
-    results.push_back(train_weights(data_base));
+    train_weights(weights,data_base);
+    for (int feature_index(0); feature_index < number_of_features_; feature_index++) {
+      weight_matrix[permutation_loop][feature_index] = weights[feature_index];
+    }
   }
-
   delete[] data_base;
 
-  return results;
+  return;
 }
 
 /**
+ * Calculate cross validities for this problem for all given permutations
+ *
+ * @param[out]  permutated_validities cross validation values for all permutations
+ * @param[in] number_of_permutations number of permutations
+ * @param[in] permutations array containing all permutations
+ * @param[in] leaveout leaveout value for cross validation (i.e. @leaveout samples will be used for testing, the rest for training, sliding window style)
+ * @param[in] band band coordinate of voxel
+ * @param[in] row row coordinate of voxel
+ * @param[in] column  column coordinate of voxel
  * 
- * @param permutation_count number of permutations
- * @param leaveout number of samples to be left out in cross validation
- * 
- * @return list of @count searchlightsvms at this position
  */
 
 void MriSvm::Permutate(permutated_validities_type &permutated_validities, 
@@ -315,7 +307,6 @@ float MriSvm::cross_validate(int leaveout,struct svm_node *data_base) {
   trainings_problem.x = new svm_node[number_of_samples_];
   trainings_problem.y = training_classes;
   
-  
   // Vector containing the predictions, either predicted classes (SVM) or predicted values (SVR)
   double predictions[number_of_samples_];
   
@@ -349,7 +340,6 @@ float MriSvm::cross_validate(int leaveout,struct svm_node *data_base) {
   delete[] trainings_problem.x;
   
   // Calculate score
-  
   if(parameters_.svm_type == EPSILON_SVR || parameters_.svm_type == NU_SVR) {
     double total_error = 0.0;
     
@@ -370,13 +360,24 @@ float MriSvm::cross_validate(int leaveout,struct svm_node *data_base) {
   
 }
 
-vector<double> MriSvm::train_weights() {
-  return(train_weights(all_data_));
+/**
+ *  Train weights on all data
+ *
+ *  @return SVM weights
+ */
+void MriSvm::train_weights(boost::multi_array<double,1> &weights) {
+  train_weights(weights,all_data_);
+  return;
 }
 
-vector<double> MriSvm::train_weights(struct svm_node *data_base) {
-  vector<double> weights(number_of_features_);
-
+/**
+ * Train weights on @data_base
+ *
+ * @param[in] data_base data base to train on
+ *
+ * @return SVM weights
+ */
+void MriSvm::train_weights(boost::multi_array<double,1> &weights, struct svm_node *data_base) {
   svm_set_print_string_function(print_nothing);
 
   struct svm_problem  problem;
@@ -395,19 +396,15 @@ vector<double> MriSvm::train_weights(struct svm_node *data_base) {
   struct svm_model    *model = svm_train(&problem,&parameters_);
 
   // Retrieve weights
-  //cout << "Calculating Weights" << endl;
   for (int i = 0; i < number_of_features_;i++) {
    double w = 0.0;
-   for (int j = 0; j < number_of_samples_;j++) {
+   for (int j = 0; j < model->l;j++) {
      w += model->sv_coef[0][j] * model->SV[j].values[i];
    }
    weights[i] = w;
- }
+  }
 
- //cout << endl;
- //cout << "Finished calculating weights" << endl;
-
- return weights;
+ return;
 }
 
 /**
@@ -415,7 +412,6 @@ vector<double> MriSvm::train_weights(struct svm_node *data_base) {
  * 
  * @return default svm parameters
  */
-
 struct svm_parameter MriSvm::get_default_parameters() {
   struct svm_parameter parameters;
 
@@ -439,7 +435,11 @@ struct svm_parameter MriSvm::get_default_parameters() {
 
 }
 
-
+/**
+ * Set SVM parameters
+ *
+ * @param[in] parameters svm parameters (libsvm format)
+ */
 void MriSvm::set_parameters(svm_parameter parameters)
 {
   parameters_ = parameters;

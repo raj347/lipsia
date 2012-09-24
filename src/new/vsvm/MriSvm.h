@@ -1,9 +1,8 @@
 /**
  * @file MriSvm.h
- *
- *  Created on: 03.04.2012
  *  
  * @author Tilo Buschmann
+ * @date  03.04.2012
  */
 
 #ifndef MRISVM_H
@@ -61,9 +60,11 @@ public:
   void    scale();
   float   cross_validate(int leaveout);
   float   cross_validate(int leaveout,struct svm_node *all_data);
-  vector<double>  train_weights();
-  vector<double>  train_weights(struct svm_node *data_base);
-  vector<vector<double> > permutated_weights(int number_of_permutations, permutations_array_type &permutations);
+
+  void    train_weights(boost::multi_array<double,1> &weights);
+  void    train_weights(boost::multi_array<double,1> &weights, struct svm_node *data_base);
+
+  void permutated_weights(boost::multi_array<double, 2> &weight_matrix, int number_of_permutations, permutations_array_type &permutations);
   void    Permutate(permutated_validities_type &permutated_validities,
                        int number_of_permutations,
                        permutations_array_type &permutations,

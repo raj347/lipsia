@@ -29,8 +29,8 @@ public:
     gsl_matrix *getRotation();
     int getP();
     matrix_2d getX();
-    vector<double> invert(vector <double>);
-    vector<double> invert_permutation(vector< vector<double> > weight_permutations, int feature_index);
+    void invert(boost::multi_array<double,1> &weights, boost::multi_array<double,1> &inverted_weight);
+    void invert_permutation(boost::multi_array<double,1> &inverted_permutated_voxel_weight, boost::multi_array<double,2> &weights, int feature_index, int permutations);
 
 private:
     void setX(matrix_2d);

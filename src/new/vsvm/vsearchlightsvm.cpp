@@ -20,7 +20,7 @@
  *      number of processors to use, '0' to use all
  *
  *  svm options:
- *    -svm_type C_SVC | NU_SVC | ONE_CLASS | EPSILON_SVR | NU_SVR
+ *    -svm_type C_SVC | NU_SVC
  *      Type parameter
  *    -svm_kernel LINEAR | POLY | RBF | SIGMOID | PRECOMPUTED
  *      Kernel parameter
@@ -35,11 +35,9 @@
  *    -svm_eps epsilon
  *      epsilon parameter (stopping criteria)
  *    -svm_C C
- *      C parameter (for C_SVC, EPSILON_SVR, and NU_SVR svm types)
+ *      C parameter (for C_SVC svm type)
  *    -svm_nu nu
- *      nu parameter (for NU_SVC, ONE_CLASS, and NU_SVR svm types)
- *    -svm_p p
- *      p parameter (for EPSILON_SVR)
+ *      nu parameter (for NU_SVC svm type)
  *
  * @author Tilo Buschmann
  *
@@ -107,10 +105,7 @@ int parseSvmType(VString svm_type) {
     return DEFAULT_MRISVM_SVM_TYPE;
 
   static map<string, MriSvm::SVM_TYPE> svm_type_map = map_list_of("C_SVC",      MriSvm::C_SVC)
-                                                                 ("NU_SVC",     MriSvm::NU_SVC)
-                                                                 ("ONE_CLASS",  MriSvm::ONE_CLASS)
-                                                                 ("EPSILON_SVR",MriSvm::EPSILON_SVR)
-                                                                 ("NU_SVR",     MriSvm::NU_SVR);
+                                                                 ("NU_SVC",     MriSvm::NU_SVC);
 
   map<string, MriSvm::SVM_TYPE>::iterator it;
   
@@ -179,7 +174,6 @@ void configure_omp(int nproc) {
  * - One VIA file per subject/sample
  * - One image within VIA file per feature
  * - Same dimensions and attributes for every image, same number of features per sample
- * - SVM class for every sample is given as "class" attribute in first image
  */
 int main (int argc,char *argv[]) {
   /********************
@@ -209,7 +203,7 @@ int main (int argc,char *argv[]) {
   VDouble           svm_eps         = DEFAULT_MRISVM_EPS;
   VDouble           svm_C           = DEFAULT_MRISVM_C;
   VDouble           svm_nu          = DEFAULT_MRISVM_NU;
-  VDouble           svm_p           = DEFAULT_MRISVM_P;
+  VBoolean          do_permutations = false;
 
   FILE *out_file;
 
@@ -219,16 +213,16 @@ int main (int argc,char *argv[]) {
     {"radius",        VDoubleRepn, 1, &radius,          VOptionalOpt, NULL, "Searchlight Radius (in mm)" },
     {"scale",         VBooleanRepn,1, &do_scale,        VOptionalOpt, NULL, "Whether to scale data"},
     {"j",             VShortRepn,  1, &nproc,           VOptionalOpt, NULL, "number of processors to use, '0' to use all" },
-    {"svm_type",      VStringRepn, 1, &svm_type,        VOptionalOpt, NULL, "SVM Type parameter (C_SVC, NU_SVC, ONE_CLASS, EPSILON_SVR, NU_SVR) " },
-    {"svm_kernel",    VStringRepn, 1, &svm_kernel_type, VOptionalOpt, NULL, "SVM Kernel parameter (LINEAR, POLY, RBF, SIGMOID, PRECOMPUTED)" },
+    {"permutate",     VBooleanRepn,1, &do_permutations, VOptionalOpt, NULL, "Calculate permutation based z scores"},
+    {"svm_type",      VStringRepn, 1, &svm_type,        VOptionalOpt, NULL, "SVM Type parameter (C_SVC or NU_SVC)" },
+    {"svm_kernel",    VStringRepn, 1, &svm_kernel_type, VOptionalOpt, NULL, "SVM Kernel parameter (LINEAR, POLY, RBF, SIGMOID, or PRECOMPUTED)" },
     {"svm_degree",    VLongRepn,   1, &svm_degree,      VOptionalOpt, NULL, "SVM degree parameter (for POLY kernel)" },
-    {"svm_gamma",     VDoubleRepn, 1, &svm_gamma,       VOptionalOpt, NULL, "SVM gamma parameter (for POLY,RBF, and SIGMOID kernels)" },
-    {"svm_coef0",     VDoubleRepn, 1, &svm_coef0,       VOptionalOpt, NULL, "SVM coef0 parameter (for POLY and SIGMOID)" },
+    {"svm_gamma",     VDoubleRepn, 1, &svm_gamma,       VOptionalOpt, NULL, "SVM gamma parameter (for POLY, RBF, and SIGMOID kernels)" },
+    {"svm_coef0",     VDoubleRepn, 1, &svm_coef0,       VOptionalOpt, NULL, "SVM coef0 parameter (for POLY and SIGMOID kernels)" },
     {"svm_cache_size",VDoubleRepn, 1, &svm_cache_size,  VOptionalOpt, NULL, "SVM cache size parameter (in MByte)" },
     {"svm_eps",       VDoubleRepn, 1, &svm_eps,         VOptionalOpt, NULL, "SVM eps parameter (stopping criteria)" },
-    {"svm_C",         VDoubleRepn, 1, &svm_C,           VOptionalOpt, NULL, "SVM C parameter (for C_SVC, EPSILON_SVR, and NU_SVR svm types)" },
-    {"svm_nu",        VDoubleRepn, 1, &svm_nu,          VOptionalOpt, NULL, "SVM nu parameter (for NU_SVC, ONE_CLASS, and NU_SVR svm types)" },
-    {"svm_p",         VDoubleRepn, 1, &svm_p,           VOptionalOpt, NULL, "SVM p parameter (for EPSILON_SVR)" }
+    {"svm_C",         VDoubleRepn, 1, &svm_C,           VOptionalOpt, NULL, "SVM C parameter (for C_SVC svm type)" },
+    {"svm_nu",        VDoubleRepn, 1, &svm_nu,          VOptionalOpt, NULL, "SVM nu parameter (for NU_SVC svm type)" }
   };
   VParseFilterCmd(VNumber(program_options),program_options,argc,argv,NULL,&out_file);
 
@@ -250,7 +244,6 @@ int main (int argc,char *argv[]) {
   parameter.coef0       = svm_coef0;
   parameter.eps         = svm_eps;
   parameter.nu          = svm_nu;
-  parameter.p           = svm_p;
   
   cerr << "Type: " << parameter.kernel_type << endl;
 
@@ -287,7 +280,7 @@ int main (int argc,char *argv[]) {
        * Read VIA file *
        *******************/
       VStringConst input_filename = ((VStringConst *) input_filenames[current_class].vector)[file_no];
-      cerr << input_filename << endl;
+      cerr << input_filename << "(" << classes[sample_position] << ")" << endl;
       FILE *input_file            = VOpenInputFile(input_filename, TRUE);
       attribute_list              = VReadFile(input_file, NULL);
       fclose(input_file);
@@ -424,28 +417,78 @@ int main (int argc,char *argv[]) {
   long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
   cout << "Execution time: " << execution_time / 1e9 << "s" << endl;
 
+  SearchLight::PermutationsReturn permutations_return;
+  permutated_validities_type permutated_validities;
+  int number_of_permutations = 1000; // FIXME make configurable
+  int actual_permutations  = 0;
+  if (do_permutations) {
+    clock_gettime(CLOCK_MONOTONIC,&start);
+    permutated_validities.resize(boost::extents[number_of_bands][number_of_rows][number_of_columns][number_of_permutations]);
+    permutations_return = sl.calculate_permutations(permutated_validities,number_of_permutations,radius);
+    clock_gettime(CLOCK_MONOTONIC,&end);
+    long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
+    cout << "Execution time: " << execution_time / 1e9 << "s" << endl;
+    actual_permutations = permutations_return.number_of_permutations;
+    cerr << "Actual permutations: " << actual_permutations << endl;
+  }
 
   /*******************************
    * Save result into vista file *
    *******************************/
 
-  VImage dest = VCreateImage(number_of_bands,number_of_rows,number_of_columns,VFloatRepn);
-  VFillImage(dest,VAllBands,0);
+  cerr << "Preparing image data ...";
+  VImage dest   = VCreateImage(number_of_bands,number_of_rows,number_of_columns,VFloatRepn);
+  VImage p_dest = VCreateImage(number_of_bands,number_of_rows,number_of_columns,VFloatRepn);
+
+  VFillImage(dest,  VAllBands,0);
+  VFillImage(p_dest,VAllBands,0);
+
   VCopyImageAttrs (source_images[0].front(), dest);
+  VCopyImageAttrs (source_images[0].front(), p_dest);
+  
 
   for(int band(0); band < number_of_bands; band++) {
     for(int row(0); row < number_of_rows; row++) {
       for(int column(0); column < number_of_columns; column++) {
         VPixel(dest,band,row,column,VFloat) = validities[band][row][column];
+
+        if (do_permutations) {
+          if (fabs(validities[band][row][column] - 0.0) < 1e-8) {
+            VPixel(p_dest,band,row,column,VFloat) = 0.0;
+          } else {
+
+            double sum = 0.0;
+            for (int i(0); i < actual_permutations; i++)
+              sum += permutated_validities[band][row][column][i];
+
+
+            double mean = sum / actual_permutations;
+            double sd = 0.0;
+            for (int i(0); i < actual_permutations; i++) {
+              double diff = mean - permutated_validities[band][row][column][i];
+              sd += diff * diff;
+            }
+            sd = sqrt(sd/(actual_permutations - 1));
+            double z = (validities[band][row][column] - mean) / sd;
+
+            VPixel(p_dest,band,row,column,VFloat) = z;
+          }
+        }
       }
     }
   }
-  VSetAttr(VImageAttrList(dest),"name",NULL,VStringRepn,"SearchlightSVM");
+  cerr << "done." << endl;
+  cerr << "Writing to disk ...";
+  VSetAttr(VImageAttrList(dest),"name",NULL,VStringRepn,"SearchlightSVM CV");
+  VSetAttr(VImageAttrList(p_dest),"name",NULL,VStringRepn,"SearchlightSVM Z");
   VAttrList out_list = VCreateAttrList();
   VAppendAttr(out_list,"image",NULL,VImageRepn,dest);
+  VAppendAttr(out_list,"image",NULL,VImageRepn,p_dest);
   VHistory(VNumber(program_options),program_options,argv[0],&attribute_list,&out_list);
   VWriteFile(out_file, out_list);
+  cerr << "done." << endl;
   
   delete[] source_images;
+  exit(-1);
 }
 

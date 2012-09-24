@@ -55,8 +55,6 @@ PrComp PCA::prcomp(matrix_2d A) {
   int m = A.shape()[0];
   int n = A.shape()[1];
 
-  cout << "m=" << m << " n=" << n << endl;
-
   // Scale Matrix A along features
   for (int i = 0; i < n; i++) {
     double sum = 0.0;
@@ -135,7 +133,7 @@ PrComp PCA::prcomp(matrix_2d A) {
   return result;
 }
 
-PrComp::PrComp(int m, int n, gsl_matrix *rotation,matrix_2d x,int p) : m_(m), n_(n), rotation_(rotation),p_(p) {
+PrComp::PrComp(int m, int n, gsl_matrix *rotation,matrix_2d x,int p) : m_(m), n_(n), p_(p), rotation_(rotation) {
   setX(x);
 }
 
@@ -159,36 +157,29 @@ gsl_matrix *PrComp::getRotation() {
   return rotation_;
 }
 
-vector<double> PrComp::invert(vector<double> weight) {
-  int p = weight.size();
-  vector<double> inverted_weight(n_,0.0);
-
-  for (int i = 0; i < n_; i++)
-    for (int j = 0; j < p; j++)
+void PrComp::invert(boost::multi_array<double,1> &weight, boost::multi_array<double,1> &inverted_weight) {
+  for (int i = 0; i < n_; i++) {
+    inverted_weight[i] = 0.0;
+    for (int j = 0; j < p_; j++)
       inverted_weight[i] += weight[j] * gsl_matrix_get(rotation_,i,j);
-
-  return inverted_weight;
-}
-
-vector<double> PrComp::invert_permutation(vector< vector<double> > weight_permutations, int feature_index) {
-  // Number of principal components
-  int p = weight_permutations[0].size();
-  //cerr << "Principal components: " << p << endl;
-  // Number of Permutations
-  int permutations = weight_permutations.size();
-  
-  //cerr << "Number of Permutations: " << permutations << endl;
-  //cerr << "Feature index: " << feature_index << endl;
-
-  vector<double> inverted_permutated_voxel_weight(permutations,0.0);
-
-  for (int i = 0; i < permutations; i++) {
-    vector<double> weight = weight_permutations[i];
-    for (int j = 0; j < p; j++) {
-      inverted_permutated_voxel_weight[i] += weight[j] * gsl_matrix_get(rotation_,feature_index,j);
-    }
   }
 
-  return inverted_permutated_voxel_weight;
+  return;
+}
+
+void PrComp::invert_permutation(boost::multi_array<double,1> &inverted_permutated_voxel_weight, boost::multi_array<double,2> &weights, int feature_index, int permutations) {
+  //struct timespec start,end;
+  //clock_gettime(CLOCK_MONOTONIC,&start);
+  for (int i = 0; i < permutations; i++) {
+    inverted_permutated_voxel_weight[i] = 0.0;
+    for (int j = 0; j < p_; j++) {
+      inverted_permutated_voxel_weight[i] += weights[i][j] * gsl_matrix_get(rotation_,feature_index,j);
+    }
+  }
+  //clock_gettime(CLOCK_MONOTONIC,&end);
+  //long long int execution_time_all = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
+  //cout << "Loop time: " << execution_time_all / 1e6 << "ms" << endl;
+
+  return;
 }
 

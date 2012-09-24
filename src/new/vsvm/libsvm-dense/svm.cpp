@@ -2169,7 +2169,9 @@ svm_model *svm_train(const svm_problem *prob, const svm_parameter *param)
 		int nSV = 0;
 		int i;
 		for(i=0;i<prob->l;i++)
-			if(fabs(f.alpha[i]) > 0) ++nSV;
+			if(fabs(f.alpha[i]) > 0) {
+        ++nSV;
+      }
 		model->l = nSV;
 #ifdef _DENSE_REP
 		model->SV = Malloc(svm_node,nSV);

@@ -1,9 +1,11 @@
 /**
+ *
  * @file SearchLight.cpp
  * 
  * Implementation of searchlight support vector machines
  *
- * @author Tilo Buschmann, 2012
+ * @author Tilo Buschmann
+ * @date 2012
  *
  */
 
@@ -31,9 +33,10 @@
 // Class headers
 #include "SearchLight.h"
 
+// OpenMP header
 #ifdef _OPENMP
 #include <omp.h>
-#endif /*_OPENMP*/
+#endif /* _OPENMP */
 
 using std::ofstream;
 using std::cerr;
@@ -42,11 +45,11 @@ using std::endl;
 
 /**
  * Generates a random int
-   
-   @param[in]     n the exclusive upper limit
-
-   @return random number in the intervall [0,n-1]
-*/
+ *  
+ *  @param[in]     n the exclusive upper limit
+ *
+ *  @return random number in the intervall [0,n-1]
+ */
 static int rand_int(int n) {
   int limit = RAND_MAX - RAND_MAX % n;
   int rnd;
@@ -58,7 +61,9 @@ static int rand_int(int n) {
 }
 
 /**
- * The constructor mostly only assigns its parameters to member variables. It also calculates the number of classes used as a preparation for cross validation.
+ * The constructor mostly only assigns its parameters to member variables. It
+ * also calculates the number of classes used as a preparation for cross
+ * validation.
  *
  * @param number_of_bands number of bands
  * @param number_of_rows number of rows
@@ -67,9 +72,9 @@ static int rand_int(int n) {
  * @param number_of_features_per_voxel number of features per voxel
  * @param sample_features The data in a 4d array
  * @param classes vector of classes, one class per sample
- * @param extension_band Extension (i.e. measure) of one voxel along the band axis
- * @param extension_row Extension (i.e. measure) of one voxel along the row axis
- * @param extension_column Extension (i.e. measure) of one voxel along the column axis
+ * @param extension_band Extension (i.e. measure) of one voxel along the band axis (in mm)
+ * @param extension_row Extension (i.e. measure) of one voxel along the row axis (in mm)
+ * @param extension_column Extension (i.e. measure) of one voxel along the column axis (in mm)
  */
 SearchLight::SearchLight(int number_of_bands, 
                          int number_of_rows, 
@@ -95,7 +100,7 @@ SearchLight::SearchLight(int number_of_bands,
                 do_show_progress(DEFAULT_SEARCHLIGHT_DO_SHOW_PROGRESS)
 
 {
-  //FIXME: This does not make sense at all, if we are doing a regression
+  //FIXME: This does not make sense at all if we are doing a regression
   // Find number of classes from classes vector, but first let's get a copy
   vector<double> classes_copy(classes);
   std::sort(classes_copy.begin(), classes_copy.end());
@@ -180,7 +185,6 @@ bool SearchLight::is_voxel_zero(int band,int row,int column) {
 /**
  * Tests if coordinates are within our coordinate system
  *
- *
  * @param band  band coordinate of voxel
  * @param row row coordinate of voxel
  * @param column column coordinate of voxel
@@ -194,19 +198,19 @@ bool SearchLight::are_coordinates_valid(int band,int row,int column) {
          (row < number_of_rows_) && 
          (column >= 0) && 
          (column < number_of_columns_));
-
 }
 
 /**
- * Extract voxel data given by relative coordinates and center voxel given by coordinates and return it in a MriSVM capable format
+ * Extract voxel data given by relative coordinates and center voxel given by
+ * coordinates and return it in a MriSVM compatible format
  *
- * @param[out] sample_features array that is getting filled with mrisvm capable data
+ * @param[out] sample_features array that is getting filled with mrisvm compatible data
  * @param[in] band  band coordinate of voxel
  * @param[in] row row coordinate of voxel
  * @param[in] column column coordinate of voxel
  * @param[in] relative_coords relative coordinates around the given voxel to extract data from
  * 
- * @return number of features in the sample feature vector (might be smaller than number of relative coordinates if some voxels are zero)
+ * @return number of features in the sample feature vector (might be smaller than number of relative coordinates if some voxels are outside of the coordinate system)
  */
 int SearchLight::prepare_for_mrisvm(sample_features_array_type &sample_features,int band, int row, int column,vector<coords_3d> &relative_coords) {
 
@@ -301,7 +305,7 @@ void SearchLight::cross_validate_permutations(permutated_validities_type  &permu
 /**
  * Calculate the cross validities via searchlight support vector machines for the whole brain
  *
- * @param[in] radius radius of the searchlight
+ * @param[in] radius radius of the searchlight in mm
  *
  * @return array containing cross validities
  */
@@ -309,7 +313,7 @@ sample_validity_array_type SearchLight::calculate(double radius) {
   cerr << "Calculating SearchLight" << endl;
   // Find relative coordinates of pixels within radius
   vector<coords_3d> relative_coords = radius_pixels(radius);
-  cerr << "Contains " << relative_coords.size() << " voxels " << endl;
+  cerr << "Searchlight contains " << relative_coords.size() << " voxels " << endl;
 
   // The result vector
   sample_validity_array_type validities(boost::extents[number_of_bands_][number_of_rows_][number_of_columns_]);
@@ -341,6 +345,7 @@ sample_validity_array_type SearchLight::calculate(double radius) {
  * Shuffles an array
  *
  * @param[in,out] array array to be shuffled
+ * @param[in] n number of elements in array
  */
 void SearchLight::shuffle(vector<int> &array,int n) {
   int j,tmp;
@@ -517,21 +522,21 @@ bool SearchLight::is_known_permutation(int number_of_samples,permutations_array_
 int SearchLight::generate_permutations(int number_of_samples, int number_of_classes, int max_number_of_permutations,permutations_array_type &permutations) {
   int n = number_of_samples;
 
-  cerr << "Number of samples" << n << endl;
+  //cerr << "Number of samples" << n << endl;
 
   int possible_number_of_permutations = static_cast<int>(boost::math::factorial<double>(n) / (boost::math::factorial<double>(n/2)));
 
   if (n > 16)
     possible_number_of_permutations = INT_MAX;
 
-  cerr << "Number of possible permutations: " << possible_number_of_permutations << endl;
+  //cerr << "Number of possible permutations: " << possible_number_of_permutations << endl;
   
   // If we want more permutations than possible, we give all possible
   if (max_number_of_permutations >= possible_number_of_permutations) {
     cerr << "Too many permutations requested. Will give all known." << endl;
     return(generate_permutations_minimal(n,number_of_classes,possible_number_of_permutations,permutations));
   } else {
-    cerr << "I will need to generate a random subset from all possible permutations." << endl;
+    //cerr << "I will need to generate a random subset from all possible permutations." << endl;
     // max_number_of_permutations < possible_number_of_permutations
     permutations.resize(boost::extents[max_number_of_permutations][n]);
     
@@ -564,7 +569,7 @@ int SearchLight::generate_permutations(int number_of_samples, int number_of_clas
       
       return(max_number_of_permutations);
     } else {
-      cerr << "Getting random permutations, converting them, then seeing if I already had them." << endl;
+      //cerr << "Getting random permutations, converting them, then seeing if I already had them." << endl;
       // Draw permutations randomly until we have enough 
       vector<int> shuffle_index(n);
       
@@ -575,8 +580,8 @@ int SearchLight::generate_permutations(int number_of_samples, int number_of_clas
     
       std::set< vector<int>, vector_lex_compare > known_permutations;
 
-      cerr << "Starting" << endl;
-      boost::progress_display file_progress(max_number_of_permutations);
+      //cerr << "Starting" << endl;
+      //boost::progress_display file_progress(max_number_of_permutations);
       do {
         shuffle(shuffle_index,n);
         convert_permutation_base(n,shuffle_index,number_of_classes);
@@ -584,13 +589,13 @@ int SearchLight::generate_permutations(int number_of_samples, int number_of_clas
 
         if (result.second) {
           permutation_loop++;
-          ++file_progress;
+          //++file_progress;
         //} else {
           //cerr << "I knew this element already!" << endl;
         }
 
       } while (permutation_loop < max_number_of_permutations);
-      cerr << "Finished" << endl;
+      //cerr << "Finished" << endl;
 
       // Convert set to permutation array
       std::set< vector<int>, vector_lex_compare >::iterator iter;
@@ -604,14 +609,6 @@ int SearchLight::generate_permutations(int number_of_samples, int number_of_clas
         permutation_loop++;
       }
     }
-
-/*
-
-    BOOST_FOREACH( permutation_type permutation, known_permutations)
-    {
-      cerr << "Test" << endl;
-    }
-*/
 
     return(max_number_of_permutations);
   }
@@ -660,25 +657,30 @@ SearchLight::PermutationsReturn  SearchLight::calculate_permutations(permutated_
   PrintPermutations(number_of_permutations,permutation_return.permutations);
  
   // Walk through all voxels of the image data
-  boost::progress_display show_progress(number_of_bands_ * number_of_rows_);
-
+  boost::progress_display show_progress(number_of_bands_ * number_of_rows_ * number_of_columns_);
    
 #pragma omp parallel for default(none) shared(permutated_validities,permutation_return,number_of_permutations,show_progress,cerr) firstprivate(relative_coords) schedule(dynamic)
   for(int band = 0; band < number_of_bands_; band++) {
    for(int row(0); row < number_of_rows_; row++) {
-#pragma omp critical
-     ++show_progress;
       for(int column(0); column < number_of_columns_; column++) {
         // Check if this is an actual brain pixel
         if (!(is_voxel_zero(band,row,column))) {
           // Put stuff into feature fector, to SVM
+          //struct timespec start,end;
+          //clock_gettime(CLOCK_MONOTONIC,&start);
           cross_validate_permutations(permutated_validities, number_of_permutations, permutation_return.permutations, band ,row,column,relative_coords);
+          //clock_gettime(CLOCK_MONOTONIC,&end);
+          //long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
+          //cerr << "Execution time: " << execution_time / 1e9 << "s" << endl;
         } else {
           for (int permutation_loop(0); permutation_loop < number_of_permutations; permutation_loop++) {
             permutated_validities[band][row][column][permutation_loop] = 0.0;
           }
           
         }
+        //cerr << "Finished on voxel: (" << band << "/" << row << "/"  << column << ")" << endl;
+#pragma omp critical
+     ++show_progress;
       }
     }
   }
@@ -709,15 +711,35 @@ void SearchLight::scale_voxel_feature(int band, int row, int column,int feature)
       max = x;
     }
   }
-  
   // Scale
   for (long int sample_index(0); sample_index < number_of_samples_; sample_index++) {
     double x = sample_features_[sample_index][band][row][column][feature];
     double lower = DEFAULT_SEARCHLIGHT_SCALE_LOWER;
     double upper = DEFAULT_SEARCHLIGHT_SCALE_UPPER;
-    
+
     sample_features_[sample_index][band][row][column][feature] = lower + (upper - lower) * (x - min) / (max - min);
   }
+/*
+  // Find mean
+  double sum = 0.0;
+  for (long int sample_index(0); sample_index < number_of_samples_; sample_index++) {
+    sum += sample_features_[sample_index][band][row][column][feature];
+  }
+  double mean = sum/number_of_samples_;
+  // Calculate standard deviation
+  sum = 0.0;
+  for (long int sample_index(0); sample_index < number_of_samples_; sample_index++) {
+    double diff = sample_features_[sample_index][band][row][column][feature] - mean;
+    sum += diff * diff;
+  }
+
+  double sd = sqrt(sum / (double) (number_of_samples_-1));
+
+  // center and scale
+  for (long int sample_index(0); sample_index < number_of_samples_; sample_index++) {
+    sample_features_[sample_index][band][row][column][feature] = (sample_features_[sample_index][band][row][column][feature] - mean) / sd;
+  }
+*/
 }
 
 /**
