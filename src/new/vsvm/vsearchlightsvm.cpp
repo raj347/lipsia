@@ -5,7 +5,7 @@
  * SearchlightSVM and then write result into another Vista file
  *
  * Usage:
- *  vsearchlightsvm -in1 class1samples.v -in2 class2samples.v [-radius radius] [-scale true|false] [-j nprocs] [svm options]
+ *  vsearchlightsvm -in1 class1samples.v -in2 class2samples.v [-radius radius] [-scale] [-permutate] [-pfile permutations.v] [-nperm number of permutations] [-j nprocs] [svm options]
  *
  *  options:
  *    -in1 class1samples.v
@@ -14,8 +14,14 @@
  *      Input files (class 2)
  *    -radius radius
  *      Searchlight Radius (in mm)
- *    -scale true|false
+ *    -scale
  *      Whether to scale data
+ *    -permutate
+ *      Whether to permutate data and genrate a z map (takes some time)
+ *    -pfile permutations.v
+ *      Where to store permutations, if desired
+ *    -nperm
+ *      Number of permutations (default: 100)
  *    -j nprocs
  *      number of processors to use, '0' to use all
  *
@@ -49,6 +55,7 @@
 #include <iomanip>
 #include <vector>
 #include <string>
+#include <sstream>
 #include <map>
 
 // C header
@@ -83,6 +90,7 @@ using std::vector;
 using std::map;
 using std::string;
 using std::ofstream;
+using std::stringstream;
 using boost::assign::map_list_of;
 
 extern "C" void getLipsiaVersion(char*,size_t);
@@ -189,7 +197,9 @@ int main (int argc,char *argv[]) {
   VDouble           radius          = DEFAULT_SEARCHLIGHT_RADIUS;
   VBoolean          do_scale        = false;
   VShort            nproc           = 4;
+  VShort            nperm           = 100;
   static VArgVector input_filenames1,input_filenames2;
+  VString           pfile           = NULL;
 
   /* 
    * SVM Parameters
@@ -212,7 +222,9 @@ int main (int argc,char *argv[]) {
     {"in2",           VStringRepn, 0, &input_filenames2,VRequiredOpt, NULL, "Input files (class 2)" },
     {"radius",        VDoubleRepn, 1, &radius,          VOptionalOpt, NULL, "Searchlight Radius (in mm)" },
     {"scale",         VBooleanRepn,1, &do_scale,        VOptionalOpt, NULL, "Whether to scale data"},
+    {"pfile",         VStringRepn, 1, &pfile,           VOptionalOpt, NULL, "File where permutations are stored" },
     {"j",             VShortRepn,  1, &nproc,           VOptionalOpt, NULL, "number of processors to use, '0' to use all" },
+    {"nperm",         VShortRepn,  1, &nperm,           VOptionalOpt, NULL, "number of permutations to generate" },
     {"permutate",     VBooleanRepn,1, &do_permutations, VOptionalOpt, NULL, "Calculate permutation based z scores"},
     {"svm_type",      VStringRepn, 1, &svm_type,        VOptionalOpt, NULL, "SVM Type parameter (C_SVC or NU_SVC)" },
     {"svm_kernel",    VStringRepn, 1, &svm_kernel_type, VOptionalOpt, NULL, "SVM Kernel parameter (LINEAR, POLY, RBF, SIGMOID, or PRECOMPUTED)" },
@@ -419,12 +431,11 @@ int main (int argc,char *argv[]) {
 
   SearchLight::PermutationsReturn permutations_return;
   permutated_validities_type permutated_validities;
-  int number_of_permutations = 1000; // FIXME make configurable
   int actual_permutations  = 0;
   if (do_permutations) {
     clock_gettime(CLOCK_MONOTONIC,&start);
-    permutated_validities.resize(boost::extents[number_of_bands][number_of_rows][number_of_columns][number_of_permutations]);
-    permutations_return = sl.calculate_permutations(permutated_validities,number_of_permutations,radius);
+    permutated_validities.resize(boost::extents[number_of_bands][number_of_rows][number_of_columns][nperm]);
+    permutations_return = sl.calculate_permutations(permutated_validities,nperm,radius);
     clock_gettime(CLOCK_MONOTONIC,&end);
     long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
     cout << "Execution time: " << execution_time / 1e9 << "s" << endl;
@@ -436,17 +447,25 @@ int main (int argc,char *argv[]) {
    * Save result into vista file *
    *******************************/
 
-  cerr << "Preparing image data ...";
-  VImage dest   = VCreateImage(number_of_bands,number_of_rows,number_of_columns,VFloatRepn);
-  VImage p_dest = VCreateImage(number_of_bands,number_of_rows,number_of_columns,VFloatRepn);
+  cerr << "Preparing image data ...(" << number_of_bands << "/" << number_of_rows << "/" << number_of_columns << ")" << endl;
 
+  VImage dest   = VCreateImage(number_of_bands,number_of_rows,number_of_columns,VFloatRepn);
+  cerr << "Created images" << endl;
+  VImage p_dest = VCreateImage(number_of_bands,number_of_rows,number_of_columns,VFloatRepn);
+  cerr << "Created images" << endl;
+  exit(0);
+  
   VFillImage(dest,  VAllBands,0);
   VFillImage(p_dest,VAllBands,0);
+  
+  cerr << "Filled with zeros" << endl;
 
   VCopyImageAttrs (source_images[0].front(), dest);
   VCopyImageAttrs (source_images[0].front(), p_dest);
   
+  cerr << "Copied attributes" << endl;
 
+  cerr << "starting" << endl;
   for(int band(0); band < number_of_bands; band++) {
     for(int row(0); row < number_of_rows; row++) {
       for(int column(0); column < number_of_columns; column++) {
@@ -488,7 +507,43 @@ int main (int argc,char *argv[]) {
   VWriteFile(out_file, out_list);
   cerr << "done." << endl;
   
+
+  // Write permutations out
+  if (do_permutations && NULL != pfile) {
+    VAttrList permutations_out_list = VCreateAttrList();
+    VHistory(VNumber(program_options),program_options,argv[0],&attribute_list,&permutations_out_list);
+
+    for(int permutation_loop(0); permutation_loop < permutations_return.number_of_permutations; permutation_loop++) {
+      VImage dest = VCreateImage(number_of_bands,number_of_rows,number_of_columns,VFloatRepn);
+      VFillImage(dest,VAllBands,0);
+      VCopyImageAttrs (source_images[0].front(), dest);
+
+      for(int band(0); band < number_of_bands; band++) {
+        for(int row(0); row < number_of_rows; row++) {
+          for(int column(0); column < number_of_columns; column++) {
+            VPixel(dest,band,row,column,VFloat) = permutated_validities[band][row][column][permutation_loop];
+          }
+        }
+      }
+      // Add permutation to image
+      stringstream permutation_text;
+
+      permutation_text << permutations_return.permutations[permutation_loop][0];
+      for (int sample_loop(1); sample_loop < number_of_samples; sample_loop++) {
+        permutation_text << "," << permutations_return.permutations[permutation_loop][sample_loop];
+      }
+
+      VSetAttr(VImageAttrList(dest),"permutation",NULL,VStringRepn,permutation_text.str().c_str());
+      VSetAttr(VImageAttrList(dest),"name",NULL,VStringRepn,"Searchlight Permutation");
+      VAppendAttr(permutations_out_list,"image",NULL,VImageRepn,dest);
+    }
+ 
+    FILE *permutation_file = fopen(pfile, "w");
+    VWriteFile(out_file, out_list);
+    fclose(permutation_file);
+  }
+
   delete[] source_images;
-  exit(-1);
+  exit(0);
 }
 
