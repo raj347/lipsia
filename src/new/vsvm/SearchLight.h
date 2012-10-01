@@ -38,11 +38,6 @@ struct vector_lex_compare {
 
 class SearchLight {
 public:
-  // Types
-  struct PermutationsReturn {
-    permutations_array_type permutations;
-    int                     number_of_permutations;
-  };
   // Methods
   SearchLight(int number_of_bands,
               int number_of_rows,
@@ -61,7 +56,7 @@ public:
   static int generate_permutations(int, int, int max_number_of_permutations,permutations_array_type &permutations);
 
   sample_validity_array_type calculate(double radius);
-  PermutationsReturn calculate_permutations(permutated_validities_type &permutated_validities, int number_of_permutations, double radius);
+  int calculate_permutations(permutated_validities_type &permutated_validities, permutations_array_type &permutations, int number_of_permutations, double radius);
   void scale();
   void set_parameters(struct svm_parameter);
   

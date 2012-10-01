@@ -637,11 +637,9 @@ void SearchLight::PrintPermutations(int number_of_permutations,permutations_arra
  * @param[in] number_of_permutations number of requested permutations
  * @param[in] radius  radius of searchlight in mm
  * 
- * @return  permutations and their actual number
+ * @return  number of permutations 
  */
-SearchLight::PermutationsReturn  SearchLight::calculate_permutations(permutated_validities_type &permutated_validities,int number_of_permutations,double radius) {
-  PermutationsReturn permutation_return;
-  
+int SearchLight::calculate_permutations(permutated_validities_type &permutated_validities,permutations_array_type &permutations, int number_of_permutations,double radius) {
   cerr << "Calculating SearchLight Permutations" << endl;
   // Find relative coordinates of pixels within radius
   vector<coords_3d> relative_coords = radius_pixels(radius);
@@ -652,14 +650,14 @@ SearchLight::PermutationsReturn  SearchLight::calculate_permutations(permutated_
    * Generate all permutations at once (in preparation for later paralized work) *
    *******************************************************************************/
   
-  number_of_permutations = generate_permutations(number_of_samples_,number_of_classes_,number_of_permutations,permutation_return.permutations);
+  number_of_permutations = generate_permutations(number_of_samples_,number_of_classes_,number_of_permutations,permutations);
   cerr << "New number of permutations: " << number_of_permutations << endl;
-  PrintPermutations(number_of_permutations,permutation_return.permutations);
+  PrintPermutations(number_of_permutations,permutations);
  
   // Walk through all voxels of the image data
   boost::progress_display show_progress(number_of_bands_ * number_of_rows_ * number_of_columns_);
    
-#pragma omp parallel for default(none) shared(permutated_validities,permutation_return,number_of_permutations,show_progress,cerr) firstprivate(relative_coords) schedule(dynamic)
+#pragma omp parallel for default(none) shared(permutations,permutated_validities,number_of_permutations,show_progress,cerr) firstprivate(relative_coords) schedule(dynamic)
   for(int band = 0; band < number_of_bands_; band++) {
    for(int row(0); row < number_of_rows_; row++) {
       for(int column(0); column < number_of_columns_; column++) {
@@ -668,7 +666,7 @@ SearchLight::PermutationsReturn  SearchLight::calculate_permutations(permutated_
           // Put stuff into feature fector, to SVM
           //struct timespec start,end;
           //clock_gettime(CLOCK_MONOTONIC,&start);
-          cross_validate_permutations(permutated_validities, number_of_permutations, permutation_return.permutations, band ,row,column,relative_coords);
+          cross_validate_permutations(permutated_validities, number_of_permutations, permutations, band ,row,column,relative_coords);
           //clock_gettime(CLOCK_MONOTONIC,&end);
           //long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
           //cerr << "Execution time: " << execution_time / 1e9 << "s" << endl;
@@ -684,8 +682,7 @@ SearchLight::PermutationsReturn  SearchLight::calculate_permutations(permutated_
       }
     }
   }
-  permutation_return.number_of_permutations = number_of_permutations;
-  return permutation_return;
+  return number_of_permutations;
 }
 
 /**

@@ -68,12 +68,14 @@ int main (int argc,char *argv[]) {
   // Parse command line parameters
   static VArgVector input_filenames1,input_filenames2;
   VBoolean  do_permutations = false;
+  VBoolean  do_pca          = false;
 
   FILE *out_file;
 
   static VOptionDescRec program_options[] = {
-    {"in1",           VStringRepn, 0, &input_filenames1,VRequiredOpt, NULL, "Input files (class 1)" },
-    {"in2",           VStringRepn, 0, &input_filenames2,VRequiredOpt, NULL, "Input files (class 2)" },
+    {"in1",           VStringRepn,  0, &input_filenames1,VRequiredOpt, NULL, "Input files (class 1)" },
+    {"in2",           VStringRepn,  0, &input_filenames2,VRequiredOpt, NULL, "Input files (class 2)" },
+    {"pca",           VBooleanRepn, 1, &do_pca,          VOptionalOpt, NULL, "Whether to do a pca before the svm"},
     {"permutate",     VBooleanRepn, 1, &do_permutations, VOptionalOpt, NULL, "Calculate permutation based z scores"}
   };
   VParseFilterCmd(VNumber (program_options),program_options,argc,argv,NULL,&out_file);
@@ -195,14 +197,21 @@ int main (int argc,char *argv[]) {
    * Conduct PCA *
    ***************/
 
-  cerr << "Conducting PCA ... ";
-  PrComp result = PCA::prcomp(sample_features);
+  matrix_2d X;
 
-  matrix_2d X = result.getX();
-  cerr << "done." << endl;
+  if (do_pca) {
+    cerr << "Conducting PCA ... ";
+    PrComp result = PCA::prcomp(sample_features);
+
+    X = result.getX();
+    cerr << "done." << endl;
+  } else {
+    X = sample_features;
+  }
+
 
   cerr << "Conducting SVM ... ";
-  MriSvm mrisvm(result.getX(),classes,number_of_samples,result.getP());
+  MriSvm mrisvm(X,classes,number_of_samples,result.getP());
   // Scale features
   mrisvm.scale();
   // Get weights
@@ -210,9 +219,14 @@ int main (int argc,char *argv[]) {
   mrisvm.train_weights(weights);
   cerr << "done." << endl;
 
-  // Convert PC-Weights to Voxel-Weights
   boost::multi_array<double,1> voxel_weights(boost::extents[used_voxels]);
-  result.invert(weights,voxel_weights);
+  if (do_pca) {
+    // Convert PC-Weights to Voxel-Weights
+    result.invert(weights,voxel_weights);
+  } else {
+    voxel_weights = 
+  }
+
 
   /****************
    * Permutations *
