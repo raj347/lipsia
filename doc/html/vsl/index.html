@@ -10,7 +10,7 @@
 <div class="toptitle">LIPSIA &nbsp;&nbsp;&nbsp; Two Group Searchlight Support Vector Machine </div>
 
 
-<div class="headtitle">vsearchlightsvm</div>
+<div class="headtitle">vsl</div>
 
 <div class="content">
 
@@ -25,19 +25,19 @@ cross validity to this center voxel.</p>
 <br/>
 
 <p><tt><b>
-		<a href="#vsearchlightsvm_parameters"><u>vsearchlightsvm</u></a>
-		-in1 class1samples*.v -in2 class2samples*.v [-radius radius] [-scale true|false] [-j nprocs] [svm options]
+		<a href="#vsl_parameters"><u>vsl</u></a>
+		-in1 class1samples*.v -in2 class2samples*.v [-radius radius] [-scale] [-permutate] [-saveperm] [-nperm number of permutations] [-j nprocs] [svm options]
 </b></tt></p> 
 
 <br/>
 
 </div>
 
-<div class="subtitle">Examples for calling 'vsearchlightsvm'</div>
+<div class="subtitle">Examples for calling 'vsl'</div>
 
 <div class="content">
 <p>Example 1:</p>
-<p><tt><b><a href="#vsearchlightsvm_parameters"><u>vsearchlightsvm</u></a> -in1 data_class1_*.v  -in2 data_class2_*.v -out data_slsvm.v -scale -svm_kernel RBF</b></tt></p>
+<p><tt><b><a href="#vsl_parameters"><u>vsl</u></a> -in1 data_class1_*.v  -in2 data_class2_*.v -out data_slsvm.v -scale -svm_kernel RBF</b></tt></p>
 <p>In this example we calculate a simple searchlight support vector machine on two groups of images containing contrast images using an RBF (Radial Basis Function) kernel, the data gets scaled in the process.</p>
 
 <p>Example 2:</p>
@@ -45,15 +45,15 @@ cross validity to this center voxel.</p>
 <p><tt><b><a href="../vgendesign/index.html"><u>vgendesign</u></a> -in design_single.txt -out design_single.v -tr 1 -ntimesteps 1200 -deriv 0</b></tt></p>
 <p><tt><b><a href="../vcolorglm/index.html"><u>vcolorglm</u></a> -in ntbsm_data.v -design design_single.v -out beta_single.v -minval 200</b></tt></p>
 <p><tt><b><a href="../vsplitbeta/index.html"><u>vsplitbeta</u></a> -in beta_single.v -base "separate_betas" -conversion conversion.txt</b></tt></p>
-<p><tt><b><a href="#vsearchlightsvm_parameters"><u>vsearchlightsvm</u></a> -in1 separate_betas_*_1.v  -in2 separate_betas_*_2.v -out split_svm.v</b></tt></p>
+<p><tt><b><a href="#vsl_parameters"><u>vsl</u></a> -in1 separate_betas_*_1.v  -in2 separate_betas_*_2.v -out split_svm.v</b></tt></p>
 
 <p>This example goes through the steps to split the scan of a single subject
 into separate &ldquo;single subject samples&rdquo; by treating every trial
-within the scan as a separate sample. The program <tt><b><a href="../vsvmdesign/index.html"><u>vsvmdesign.pl</u></a></b></tt> generates a new design file that defines the &ldquo;single subject samples&rdquo; and with <tt><b><a href="../vgendesign/index.html"><u>vgendesign</u></a></b></tt> and <tt><b><a href="../vcolorglm/index.html"><u>vcolorglm</u></a></b></tt> the separate samples are calculated. The program <tt><b><a href="../vsplitbeta/index.html"><u>vsplitbeta</u></a> </b></tt> then splits up the output of vcolorglm into separate files that are usable by <tt><b><a href="#vsearchlightsvm_parameters"><u>vsearchlightsvm</u></a></b></tt></p> 
+within the scan as a separate sample. The program <tt><b><a href="../vsvmdesign/index.html"><u>vsvmdesign.pl</u></a></b></tt> generates a new design file that defines the &ldquo;single subject samples&rdquo; and with <tt><b><a href="../vgendesign/index.html"><u>vgendesign</u></a></b></tt> and <tt><b><a href="../vcolorglm/index.html"><u>vcolorglm</u></a></b></tt> the separate samples are calculated. The program <tt><b><a href="../vsplitbeta/index.html"><u>vsplitbeta</u></a> </b></tt> then splits up the output of vcolorglm into separate files that are usable by <tt><b><a href="#vsl_parameters"><u>vsl</u></a></b></tt></p> 
 
 <br/> </div>
 
-<div class="headtitle" id="vsearchlightsvm_parameters">Parameters of 'vsearchlightsvm':</div>
+<div class="headtitle" id="vsl_parameters">Parameters of 'vsl':</div>
 
 <div class="content">
 <b>General Options:</b>
@@ -64,10 +64,16 @@ within the scan as a separate sample. The program <tt><b><a href="../vsvmdesign/
 		<dd>Input files (class 2), required</dd>
 	<dt>-radius radius</dt>
 		<dd>Searchlight Radius in mm (default: 7mm)</dd>
-     <dt>-scale true|false</dt>
-       <dd>Whether to scale data (default: false)</dd>
-     <dt>-j nprocs</dt>
-       <dd>number of processors to use, '0' to use all (default: 4)</dd>
+     	<dt>-scale</dt>
+       		<dd>Whether to scale data (default: false)</dd>
+     	<dt>-permutate</dt>
+       		<dd>Whether to calculate permutation statistic, very slow (default: false)</dd>
+     	<dt>-saveperm</dt>
+       		<dd>Whether to also write permutations to output file, requires -permutate (default: false)</dd>
+     	<dt>-nperm number of permutations</dt>
+       		<dd>number of permutations (default: 100)</dd>
+     	<dt>-j nprocs</dt>
+       		<dd>number of processors to use, '0' to use all (default: 4)</dd>
  </dl>
 <b>SVM Options</b>
 <dl>
