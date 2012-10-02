@@ -1,11 +1,11 @@
 /**
- * @file vsearchlightsvm.cpp
+ * @file vsl.cpp
  * 
  * Wrapper around SearchLight class to load samples from Vista images, process
  * SearchlightSVM and then write result into another Vista file
  *
  * Usage:
- *  vsearchlightsvm -in1 class1samples.v -in2 class2samples.v [-radius radius] [-scale] [-permutate] [-pfile permutations.v] [-nperm number of permutations] [-j nprocs] [svm options]
+ *  vsl -in1 class1samples.v -in2 class2samples.v [-radius radius] [-scale] [-permutate] [-saveperm] [-nperm number of permutations] [-j nprocs] [svm options]
  *
  *  options:
  *    -in1 class1samples.v
@@ -18,8 +18,8 @@
  *      Whether to scale data
  *    -permutate
  *      Whether to permutate data and genrate a z map (takes some time)
- *    -pfile permutations.v
- *      Where to store permutations, if desired
+ *    -saveperm 
+ *      Whether to save permutations to output file
  *    -nperm
  *      Number of permutations (default: 100)
  *    -j nprocs
