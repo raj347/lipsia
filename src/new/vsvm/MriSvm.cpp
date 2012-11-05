@@ -10,6 +10,7 @@
 #include <fstream>
 
 #include <boost/foreach.hpp>
+#include <boost/progress.hpp>
 
 // GSL headers
 #include <gsl/gsl_rng.h>
@@ -131,8 +132,9 @@ void MriSvm::prepare_all_data(sample_features_array_type  &sample_features) {
     
     for(long int feature_index(0); feature_index < number_of_features_; feature_index++) {
       all_data_[sample_index].values[feature_index] = sample_features[sample_index][feature_index];
+      //cerr << sample_features[sample_index][feature_index] << " ";
     }
-    
+    //cerr << endl;
   }
 }
 
@@ -211,11 +213,13 @@ void MriSvm::printConfiguration() {
  */
 
 void MriSvm::permutated_weights(boost::multi_array<double, 2> &weight_matrix, int number_of_permutations, permutations_array_type &permutations) {
-  struct svm_node *data_base = new svm_node[number_of_samples_];
 
-  boost::multi_array<double, 1> weights(boost::extents[number_of_features_]);
+  boost::progress_display show_progress(number_of_permutations);
 
-  for (int permutation_loop(0); permutation_loop < number_of_permutations; permutation_loop++) {
+#pragma omp parallel for default(none) shared(number_of_permutations, show_progress, permutations, weight_matrix) private(boost::extents) schedule(dynamic)
+  for (int permutation_loop = 0; permutation_loop < number_of_permutations; permutation_loop++) {
+    struct svm_node *data_base = new svm_node[number_of_samples_];
+    boost::multi_array<double, 1> weights(boost::extents[number_of_features_]);
     // Set up a SVM problem with original classes but permutated samples
     for (int sample_loop(0); sample_loop < number_of_samples_; sample_loop++) {
       int shuffled_index = permutations[permutation_loop][sample_loop];
@@ -227,8 +231,11 @@ void MriSvm::permutated_weights(boost::multi_array<double, 2> &weight_matrix, in
     for (int feature_index(0); feature_index < number_of_features_; feature_index++) {
       weight_matrix[permutation_loop][feature_index] = weights[feature_index];
     }
+    delete [] data_base;
+
+#pragma omp critical
+    ++show_progress;
   }
-  delete[] data_base;
 
   return;
 }
@@ -389,7 +396,9 @@ void MriSvm::train_weights(boost::multi_array<double,1> &weights, struct svm_nod
     
   for(int sample_loop(0); sample_loop < number_of_samples_;sample_loop++) {
     classes[sample_loop]            = classes_[sample_loop];
+   //cerr << " " << classes[sample_loop];
   }
+  //cerr << endl;
   problem.l = number_of_samples_;
 
   // Train
@@ -402,7 +411,9 @@ void MriSvm::train_weights(boost::multi_array<double,1> &weights, struct svm_nod
      w += model->sv_coef[0][j] * model->SV[j].values[i];
    }
    weights[i] = w;
+   //cerr << " " << w;
   }
+  //cerr << endl;
 
  return;
 }
@@ -443,5 +454,39 @@ struct svm_parameter MriSvm::get_default_parameters() {
 void MriSvm::set_parameters(svm_parameter parameters)
 {
   parameters_ = parameters;
+}
+
+/*
+int MriSvm::generate_permutations(int n, int max_number_of_permutations, permutations_array_type &permutations) {
+      permutations.resize(boost::extents[2][n]);
+      int permutation_0[40] = {37,20,17,5,35,16,13,11,6,19,28,8,1,22,14,26,15,0,12,3,24,29,9,34,32,2,33,23,31,38,39,10,21,27,36,18,4,7,25,30};
+      int permutation_1[40] = {34,13,2,32,16,14,25,33,38,18,21,29,17,22,8,9,23,11,39,10,35,24,20,19,27,15,31,3,30,5,4,28,6,0,37,7,12,1,36,26};
+
+      for (int sample_loop(0); sample_loop < n; sample_loop++) {
+        permutations[0][sample_loop] = permutation_0[sample_loop];
+        permutations[1][sample_loop] = permutation_1[sample_loop];
+      }
+
+      return 2;
+}
+*/
+
+int MriSvm::generate_permutations(int n, int max_number_of_permutations, permutations_array_type &permutations) {
+      permutations.resize(boost::extents[max_number_of_permutations][n]);
+      vector<int> shuffle_index(n);
+
+      for (int sample_loop(0); sample_loop < n; sample_loop++) {
+        shuffle_index[sample_loop] = sample_loop;
+      }
+
+      for (int permutation_loop(0); permutation_loop < max_number_of_permutations; permutation_loop++) {
+        //cerr << "Permutation number " << permutation_loop << endl;
+        SearchLight::shuffle(shuffle_index,n);
+        for (int sample_loop(0); sample_loop < n; sample_loop++) {
+          permutations[permutation_loop][sample_loop] = shuffle_index[sample_loop];
+        }
+      }
+      return max_number_of_permutations;
+
 }
 

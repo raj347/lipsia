@@ -12,7 +12,7 @@
 #include <vector>
 #include <string>
 
-#define BOOST_DISABLE_ASSERTS
+//#define BOOST_DISABLE_ASSERTS
 #include "boost/multi_array.hpp"
 
 #define DEFAULT_SEARCHLIGHT_SCALE_LOWER 0
@@ -59,11 +59,9 @@ public:
   int calculate_permutations(permutated_validities_type &permutated_validities, permutations_array_type &permutations, int number_of_permutations, double radius);
   void scale();
   void set_parameters(struct svm_parameter);
-  
-  
+  static void shuffle(vector <int> &shuffle,int n);
 
 private:
-  static void shuffle(vector <int> &shuffle,int n);
   static int generate_permutations_minimal(int number_of_samples, int number_of_classes, int max_number_of_permutations, permutations_array_type &permutations);
   static bool is_known_permutation(int number_of_samples, permutations_array_type permutations, int * new_permutation, int number_of_permutations);
   static bool are_permutations_equal(int number_of_samples, permutations_array_type permutations, int position, int * new_permutation);

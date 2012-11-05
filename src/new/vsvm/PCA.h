@@ -30,7 +30,7 @@ public:
     int getP();
     matrix_2d getX();
     void invert(boost::multi_array<double,1> &weights, boost::multi_array<double,1> &inverted_weight);
-    void invert_permutation(boost::multi_array<double,1> &inverted_permutated_voxel_weight, boost::multi_array<double,2> &weights, int feature_index, int permutations);
+    void invert_permutation(vector<double> &inverted_permutated_voxel_weight, boost::multi_array<double,2> &weights, int feature_index, int permutations);
 
 private:
     void setX(matrix_2d);
@@ -45,7 +45,7 @@ public:
   PCA();
   virtual ~PCA();
   void    printConfiguration();
-  static PrComp prcomp(matrix_2d A);
+  static PrComp *prcomp(matrix_2d A);
 
 private:
 

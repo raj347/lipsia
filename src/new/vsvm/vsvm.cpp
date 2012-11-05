@@ -1,70 +1,74 @@
 /**
- * @file vsvr.cpp
+ * @file vsvm.cpp
  * 
- * SVR - Support Vector Regression
- *
+ * SVM - Support Vector Machine
+ * 
  * Usage:
- *  vsvr -in samples.v -y response.txt [-scale] [-pca] [-saveperm] [-nperm number of permutations] [-j nprocs] [svr options]
+ *  vsvm -in1 class1samples.v -in2 class2samples.v [-scale] [-pca] [-saveperm] [-nperm number of permutations] [-j nprocs] [svm options]
  *
  *  options:
- *    -in samples.v
- *      input files 
- *    -y
- *      input file containing responses (one per line and sample)
+ *    -in1 class1samples.v
+ *      Input files (class 1)
+ *    -in2 class2samples.v
+ *      Input files (class 2)
  *    -scale
  *      Whether to scale data
+ *    -pca
+ *      Wheter to process data with a principal component analysis
  *    -saveperm
  *      Whether to save permutations to output file
  *    -nperm
  *      Number of permutations (default: 0)
- *    -pca
- *      Wheter to process data with a principal component analysis
  *    -j nprocs
  *      number of processors to use, '0' to use all
  *
- *  svr options:
- *    -svr_cache_size cache_size
+ *  svm options:
+ *    -svm_cache_size cache_size
  *      cache size parameter (in MByte)
- *    -svr_C C
- *      C parameter
- *    -svr_p p
- *      p parameter
+ *    -svm_eps epsilon
+ *      epsilon parameter (stopping criteria)
+ *    -svm_C C
+ *      C parameter (for C_SVC svm type)
  *
  * @author Tilo Buschmann
- * @date 27.8.2012
  */
 
 // C++ header
+#include <iostream>
 #include <fstream>
 #include <iomanip>
-#include <iostream>
+#include <vector>
+#include <string>
 #include <map>
 #include <sstream>
-#include <string>
-#include <vector>
 
 // C header
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include <time.h>
+
+// GSL
+#include <gsl/gsl_cdf.h>
 
 // Boost header
 //#define BOOST_DISABLE_ASSERTS
-#include <boost/assign.hpp>
-#include <boost/foreach.hpp>
 #include <boost/multi_array.hpp>
+#include <boost/assign.hpp>
 #include <boost/progress.hpp>
+#include <boost/foreach.hpp>
 
 // VIA header
+#include <viaio/Vlib.h>
+#include <viaio/VImage.h>
 #include <viaio/mu.h>
 #include <viaio/option.h>
-#include <viaio/VImage.h>
-#include <viaio/Vlib.h>
 
 // Class header
-#include "MriSvm.h"
 #include "PCA.h"
+#include "MriSvm.h"
+
+#define DEFAULT_VSVM_IMAGE_CLASS 0
 
 using std::cerr;
 using std::cout;
@@ -74,7 +78,6 @@ using std::vector;
 using std::map;
 using std::string;
 using std::ofstream;
-using std::ifstream;
 using boost::assign::map_list_of;
 using std::stringstream;
 
@@ -110,71 +113,59 @@ int main (int argc,char *argv[]) {
   cerr << argv[0] << " V" << version << endl;
 
   // Parse command line parameters
-  static VArgVector input_filenames;
-
+  static VArgVector input_filenames1,input_filenames2;
+  VString   perm_filename   = NULL;
   VBoolean  do_scale        = false;
   VBoolean  do_pca          = false;
   VBoolean  save_perms      = false;
-  VShort    nperm           = 0;
   VShort    nproc           = 4;
-  VString   y_file          = NULL;
-  VDouble   svm_cache_size  = DEFAULT_MRISVM_CACHE_SIZE;
-  VDouble   svm_p           = DEFAULT_MRISVM_P;
-  VDouble   svm_C           = DEFAULT_MRISVM_C;
-  
+  VLong     nperm           = 0;
+
   FILE *out_file;
 
+  VDouble svm_cache_size  = DEFAULT_MRISVM_CACHE_SIZE;
+  VDouble svm_eps         = DEFAULT_MRISVM_EPS;
+  VDouble svm_C           = DEFAULT_MRISVM_C;
+
   static VOptionDescRec program_options[] = {
-    {"in",            VStringRepn,  0, &input_filenames,  VRequiredOpt, NULL, "Input files" },
-    {"y",             VStringRepn,  1, &y_file,           VRequiredOpt, NULL, "File containing the dependent values" },
+    {"in1",           VStringRepn,  0, &input_filenames1, VRequiredOpt, NULL, "Input files (class 1)" },
+    {"in2",           VStringRepn,  0, &input_filenames2, VRequiredOpt, NULL, "Input files (class 2)" },
     {"scale",         VBooleanRepn, 1, &do_scale,         VOptionalOpt, NULL, "Whether to scale data"},
     {"pca",           VBooleanRepn, 1, &do_pca,           VOptionalOpt, NULL, "Whether to do a pca before the svm"},
     {"saveperm",      VBooleanRepn, 1, &save_perms,       VOptionalOpt, NULL, "Whether to store permutations" },
-    {"nperm",         VShortRepn,   1, &nperm,            VOptionalOpt, NULL, "number of permutations to generate (default: 0)" },
+    {"permfile",      VStringRepn,  1, &perm_filename,    VOptionalOpt, NULL, "File to store permutations (if extra file)" },
     {"j",             VShortRepn,   1, &nproc,            VOptionalOpt, NULL, "number of processors to use, '0' to use all" },
+    {"nperm",         VLongRepn,    1, &nperm,            VOptionalOpt, NULL, "number of permutations to generate (default: 0)" },
     {"svm_cache_size",VDoubleRepn,  1, &svm_cache_size,   VOptionalOpt, NULL, "SVM cache size parameter (in MByte)" },
-    {"svm_p",         VDoubleRepn,  1, &svm_p,            VOptionalOpt, NULL, "SVM p parameter" },
-    {"svm_C",         VDoubleRepn,  1, &svm_C,            VOptionalOpt, NULL, "SVM C parameter" }
+    {"svm_eps",       VDoubleRepn,  1, &svm_eps,          VOptionalOpt, NULL, "SVM eps parameter (stopping criteria)" },
+    {"svm_C",         VDoubleRepn,  1, &svm_C,            VOptionalOpt, NULL, "SVM C parameter (for C_SVC svm type)" }
   };
   VParseFilterCmd(VNumber (program_options),program_options,argc,argv,NULL,&out_file);
+  cerr << "Filename: " << perm_filename << endl;
   
-  bool do_permutations = (nperm > 0);
-
+  bool      do_permutations = (nperm > 0);
+  
+  VArgVector  input_filenames[2] = {input_filenames1,input_filenames2};
+  
   struct svm_parameter parameter = MriSvm::get_default_parameters();
-  parameter.svm_type    = MriSvm::EPSILON_SVR;
+  parameter.svm_type    = MriSvm::C_SVC;
   parameter.kernel_type = MriSvm::LINEAR;
-  
+
   parameter.cache_size  = svm_cache_size;
-  parameter.p           = svm_p;
+  parameter.eps         = svm_eps;
   parameter.C           = svm_C;
 
 #ifdef _OPENMP
   // Take care of multiprocessing
   configure_omp(nproc); 
 #endif /*OPENMP */
-  
-  int number_of_samples             = input_filenames.number;
-  
-  /*************************
-   * Read Correlation File *
-   *************************/
-  vector <double> y(number_of_samples);
-
-  cerr << "Reading predictee variable file \"" << y_file << "\" ... ";
-  ifstream input(y_file);
-
-  double f;
-  int sample_index;
-  for (sample_index = 0, f = 0.0; (input >> f) && (sample_index < number_of_samples); sample_index++) {
-    //cerr << "Read value " << f << " at sample_index " << sample_index << endl;
-    y[sample_index] = f;
-  }
-  cerr << "done." << endl;
 
   /*******************************************
    * Read image files and extract image data *
    *******************************************/
 
+  int number_of_class_samples[2]    = {input_filenames1.number, input_filenames2.number};
+  int number_of_samples             = input_filenames1.number+input_filenames2.number;
 
   VImage source_images[number_of_samples];
 
@@ -183,48 +174,57 @@ int main (int argc,char *argv[]) {
 
   cerr << "Reading Image Files ... " << endl;
 
-  for (int sample_index(0); sample_index < number_of_samples;sample_index++) {
-    source_images[sample_index]  = NULL;
+  vector <double> classes(number_of_samples);
+  int sample_position = 0;
 
-    /*******************
-     * Read image file *
-     *******************/
-    VStringConst input_filename = ((VStringConst *) input_filenames.vector)[sample_index];
-    cerr << input_filename << "(" << y[sample_index] << ")  ";
-    FILE *input_file = VOpenInputFile(input_filename, TRUE);
-    attribute_list   = VReadFile(input_file, NULL);
-    fclose(input_file);
+  for (int current_class(0); current_class <= 1;current_class++) {
+    cerr << "  Reading class " << current_class + 1 << " image files" << endl << "  ";
+    for (int file_no(0); file_no < number_of_class_samples[current_class] ; file_no++) {
+      source_images[sample_position]  = NULL;
+      classes[sample_position]        = current_class;
 
-    /**********************
-     * Analyse attributes *
-     **********************/
+      /*******************
+       * Read image file *
+       *******************/
+      VStringConst input_filename = ((VStringConst *) input_filenames[current_class].vector)[file_no];
+      cerr << input_filename << "(" << classes[sample_position] + 1 << ") ";
+      FILE *input_file          = VOpenInputFile(input_filename, TRUE);
+      attribute_list  = VReadFile(input_file, NULL);
+      fclose(input_file);
 
-    if(!attribute_list)
-      VError("Error reading image");
+      /**********************
+       * Analyse attributes *
+       **********************/
 
-    VAttrListPosn position;
-    for (VFirstAttr(attribute_list, &position); VAttrExists(&position); VNextAttr(&position)) {
-      if (VGetAttrRepn(&position) != VImageRepn)
-        continue;
-      VImage image;
-      VGetAttrValue(&position,NULL,VImageRepn,&image);
+      if(!attribute_list)
+        VError("Error reading image");
 
-      source_images[sample_index] = image;
-      break;
+      VAttrListPosn position;
+      for (VFirstAttr(attribute_list, &position); VAttrExists(&position); VNextAttr(&position)) {
+        if (VGetAttrRepn(&position) != VImageRepn)
+          continue;
+        VImage image;
+        VGetAttrValue(&position,NULL,VImageRepn,&image);
+
+        source_images[sample_position] = image;
+        break;
+      }
+
+      if (source_images[sample_position] == NULL) 
+        VError("No input image found");
+
+      // Get number of features (i.e. bands * rows * columns)
+      long int this_number_of_voxels = VImageNPixels(source_images[sample_position]);
+      if (0 == number_of_voxels) {
+        number_of_voxels = this_number_of_voxels;
+      } else if (number_of_voxels != this_number_of_voxels) {
+        VError("Error: Number of features differs from number of features in previous pictures.");
+      }
+      sample_position++;
     }
-
-    if (source_images[sample_index] == NULL) 
-      VError("No input image found");
-
-    // Get number of features (i.e. bands * rows * columns)
-    int this_number_of_voxels = VImageNPixels(source_images[sample_index]);
-    if (0 == number_of_voxels) {
-      number_of_voxels = this_number_of_voxels;
-    } else if (number_of_voxels != this_number_of_voxels) {
-      VError("Error: Number of features differs from number of features in previous pictures.");
-    }
+    cerr << endl;
   }
-  cerr << endl << "done." << endl << endl;
+  cerr << "done." << endl << endl;
 
   /*****************************
    * Convert to usable format  *
@@ -243,7 +243,8 @@ int main (int argc,char *argv[]) {
       for(int column(0); column < number_of_columns; column++) {
         voxel_is_empty[band][row][column] = true;
         for(int sample_index(0); sample_index < number_of_samples; sample_index++) {
-          if (VGetPixel(source_images[sample_index],band,row,column) != 0.0) {
+          double voxel = VGetPixel(source_images[sample_index],band,row,column);
+          if (voxel != 0.0 && !(isnan(voxel))) {
             voxel_is_empty[band][row][column] = false;
           }
         }
@@ -252,8 +253,8 @@ int main (int argc,char *argv[]) {
       }
     }
   }
-
-  cerr << "  Using " << used_voxels << " of " << number_of_voxels << " features in the images." << endl;
+    
+  cerr << "  Using " << used_voxels << " of " << number_of_voxels << " voxels in the images." << endl;
   matrix_2d sample_features(boost::extents[number_of_samples][used_voxels]);
 
   for(int sample_index(0); sample_index < number_of_samples; sample_index++) {
@@ -272,18 +273,19 @@ int main (int argc,char *argv[]) {
   cerr << "done." << endl;
 
   int used_number_of_features = 0;
-  PrComp *pca_result = NULL;
 
   matrix_2d svm_input;
+
+  PrComp    *pca_result = NULL;
+
   if (do_pca) {
     /***************
      * Conduct PCA *
      ***************/
     cerr << "Conducting PCA ... ";
     pca_result = PCA::prcomp(sample_features);
-    cerr << "done." << endl;
-
     used_number_of_features = pca_result->getP();
+
     matrix_2d X = pca_result->getX();
 
     std::vector<size_t> ex;
@@ -291,6 +293,8 @@ int main (int argc,char *argv[]) {
     ex.assign(shape,shape+X.num_dimensions());
     svm_input.resize(ex);
     svm_input = X;
+
+    cerr << "done." << endl;
   } else {
     std::vector<size_t> ex;
     const size_t* shape = sample_features.shape();
@@ -301,11 +305,15 @@ int main (int argc,char *argv[]) {
     used_number_of_features = used_voxels;
   }
 
-  cerr << "Conducting SVR ... ";
+  /***************
+   * Conduct SVM *
+   ***************/
+
+  cerr << "Conducting SVM ... ";
   struct timespec start,end;
   clock_gettime(CLOCK_MONOTONIC,&start);
 
-  MriSvm mrisvm(svm_input, y, number_of_samples, used_number_of_features);
+  MriSvm mrisvm(svm_input, classes, number_of_samples, used_number_of_features);
   mrisvm.set_parameters(parameter);
 
   // Scale features
@@ -316,14 +324,13 @@ int main (int argc,char *argv[]) {
   // Get weights
   boost::multi_array<double,1> weights(boost::extents[used_number_of_features]);
   mrisvm.train_weights(weights);
-
   clock_gettime(CLOCK_MONOTONIC,&end);
+
   long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
   cout << "Execution time: " << execution_time / 1e9 << "s" << endl;
 
   cerr << "done." << endl;
-  
-  // Convert PC-Weights to Voxel-Weights
+
   boost::multi_array<double,1> voxel_weights(boost::extents[used_voxels]);
   if (do_pca) {
     // Convert PC-Weights to Voxel-Weights
@@ -332,23 +339,23 @@ int main (int argc,char *argv[]) {
     voxel_weights = weights;
   }
 
+
   /****************
    * Permutations *
    ****************/
   boost::multi_array<double, 2> permutated_weights;
   vector<double>  permutated_voxel_weights;
   int actual_permutations = 0;
-
   permutations_array_type permutations;
   if (do_permutations) {
-    cerr << "Calculating SVR of permutations ... ";
+    cerr << "Calculating SVM of permutations ... ";
 
-    actual_permutations = SearchLight::generate_permutations(number_of_samples,2,nperm,permutations);
+    actual_permutations = MriSvm::generate_permutations(number_of_samples, nperm, permutations);
     cerr << "Actual number of permutations: " << actual_permutations << endl;
     permutated_weights.resize(boost::extents[actual_permutations][used_number_of_features]);
 
     mrisvm.permutated_weights(permutated_weights,actual_permutations,permutations);
-
+  
     permutated_voxel_weights.resize(actual_permutations);
 
     cerr << "done." << endl;
@@ -359,19 +366,20 @@ int main (int argc,char *argv[]) {
    ****************/
   int feature_index = 0;
 
-  VImage dest             = VCreateImage(number_of_bands,number_of_rows,number_of_columns,VFloatRepn);
+  VImage dest = VCreateImage(number_of_bands,number_of_rows,number_of_columns,VFloatRepn);
   VFillImage(dest,VAllBands,0);
   VCopyImageAttrs (source_images[0], dest);
 
   VImage p_dest = VCreateImage(number_of_bands,number_of_rows,number_of_columns,VFloatRepn);
   VFillImage(p_dest,VAllBands,0);
   VCopyImageAttrs(source_images[0], p_dest);
-
-  cerr << "Writing output image ... ";
+  
+  cerr << "Generating weights image ... ";
   boost::progress_display writing_progress(used_voxels);
+  
   VAttrList out_list = VCreateAttrList();
 
-  for(int band(0); band < number_of_bands; band++) {
+  for(int band = 0; band < number_of_bands; band++) {
     for(int row(0); row < number_of_rows; row++) {
       for(int column(0); column < number_of_columns; column++) {
         if (!voxel_is_empty[band][row][column]) {
@@ -382,7 +390,7 @@ int main (int argc,char *argv[]) {
          
           if (do_permutations) {
             /*****************
-             * Write z-score *
+             * Write p value *
              *****************/
             if (do_pca) {
               pca_result->invert_permutation(permutated_voxel_weights, permutated_weights, feature_index, actual_permutations);
@@ -391,6 +399,7 @@ int main (int argc,char *argv[]) {
                 permutated_voxel_weights[i] = permutated_weights[i][feature_index];
               }
             }
+
             // Sort permutated voxel weights
             std::sort(permutated_voxel_weights.begin(), permutated_voxel_weights.end());
 
@@ -406,8 +415,11 @@ int main (int argc,char *argv[]) {
 
             p *= 2;
 
-            VPixel(p_dest,band,row,column,VFloat) = p;
+            // Correction for 0, do not double!
+            if ((weight_index == 0) || (weight_index == actual_permutations))
+              p = 1.0 / (double) actual_permutations;
 
+            VPixel(p_dest,band,row,column,VFloat) = -log10(p);
           }
 
           feature_index++;
@@ -424,8 +436,14 @@ int main (int argc,char *argv[]) {
     VSetAttr(VImageAttrList(p_dest),"name",NULL,VStringRepn,"PCA SVM non-parametric p");
     VAppendAttr(out_list,"image",NULL,VImageRepn,p_dest);
   }
+  
+  cerr << "done." << endl;
 
   if (do_permutations && save_perms) {
+    cerr << "Generating permutation images." << endl;
+
+    VAttrList perm_out_list = VCreateAttrList();
+
     // For permutations and pca
     boost::multi_array<double,1> inverted_weight;
     boost::multi_array<double,1> weight;
@@ -436,6 +454,7 @@ int main (int argc,char *argv[]) {
       weight.resize(boost::extents[used_number_of_features]);
     }
 
+    boost::progress_display permutation_progress(actual_permutations);
     for(int permutation_loop(0); permutation_loop < actual_permutations; permutation_loop++) {
       int feature_index = 0;
 
@@ -465,6 +484,7 @@ int main (int argc,char *argv[]) {
         }
       }
 
+
       stringstream permutation_text;
       permutation_text << permutations[permutation_loop][0];
       for (int sample_loop(1); sample_loop < number_of_samples; sample_loop++) {
@@ -472,12 +492,30 @@ int main (int argc,char *argv[]) {
       }
 
       VSetAttr(VImageAttrList(dest),"permutation",NULL,VStringRepn,permutation_text.str().c_str());
-      VSetAttr(VImageAttrList(dest),"name",NULL,VStringRepn,"Searchlight Permutation");
-      VAppendAttr(out_list,"image",NULL,VImageRepn,dest);
-    }
-  }
-  cerr << "done." << endl;
+      VSetAttr(VImageAttrList(dest),"name",NULL,VStringRepn,"SVM Permutation");
 
+      if (perm_filename != NULL) {
+        VAppendAttr(perm_out_list,"image",NULL,VImageRepn,dest);
+      } else {
+        VAppendAttr(out_list,"image",NULL,VImageRepn,dest);
+      }
+
+      ++permutation_progress;
+    }
+
+    if (perm_filename != NULL) {
+      cerr << "Writing extra file" << endl;
+      FILE  *perm_file  = fopen(perm_filename,"w");
+      cerr << "File: " << perm_file << endl;
+      VWriteFile(perm_file, perm_out_list);
+      fclose(perm_file);
+    }
+
+    cerr << "done." << endl;
+  }
+
+  cerr << "Saving to disk ...";
   VWriteFile(out_file, out_list);
+  cerr << "done." << endl;
 }
 

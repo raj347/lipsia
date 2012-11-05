@@ -5,7 +5,7 @@
  * SearchlightSVM and then write result into another Vista file
  *
  * Usage:
- *  vsl -in1 class1samples.v -in2 class2samples.v [-radius radius] [-scale] [-permutate] [-saveperm] [-nperm number of permutations] [-j nprocs] [svm options]
+ *  vsl -in1 class1samples.v -in2 class2samples.v [-radius radius] [-scale] [-saveperm] [-nperm number of permutations] [-j nprocs] [svm options]
  *
  *  options:
  *    -in1 class1samples.v
@@ -16,12 +16,11 @@
  *      Searchlight Radius (in mm)
  *    -scale
  *      Whether to scale data
- *    -permutate
- *      Whether to permutate data and genrate a z map (takes some time)
  *    -saveperm 
  *      Whether to save permutations to output file
  *    -nperm
- *      Number of permutations (default: 100)
+ *      Number of permutations (default: 0)
+ *      If > 0, we also generate a z map
  *    -j nprocs
  *      number of processors to use, '0' to use all
  *
@@ -65,7 +64,7 @@
 #include <time.h>
 
 // Boost header
-#define BOOST_DISABLE_ASSERTS // increases performance, disable when debugging
+//#define BOOST_DISABLE_ASSERTS // increases performance, disable when debugging
 #include <boost/multi_array.hpp>
 #include <boost/assign.hpp>
 #include <boost/progress.hpp>
@@ -198,11 +197,10 @@ int main (int argc,char *argv[]) {
   VDouble           radius          = DEFAULT_SEARCHLIGHT_RADIUS;
 
   VBoolean          do_scale        = false;
-  VBoolean          do_permutations = false;
   VBoolean          save_perms      = false;
 
   VShort            nproc           = 4;
-  VShort            nperm           = 100;
+  VShort            nperm           = 0;
   static VArgVector input_filenames1,input_filenames2;
 
   /* 
@@ -228,7 +226,6 @@ int main (int argc,char *argv[]) {
     {"saveperms",     VBooleanRepn,1, &save_perms,      VOptionalOpt, NULL, "Whether to store permutations" },
     {"j",             VShortRepn,  1, &nproc,           VOptionalOpt, NULL, "number of processors to use, '0' to use all" },
     {"nperm",         VShortRepn,  1, &nperm,           VOptionalOpt, NULL, "number of permutations to generate" },
-    {"permutate",     VBooleanRepn,1, &do_permutations, VOptionalOpt, NULL, "Calculate permutation based z scores"},
     {"svm_type",      VStringRepn, 1, &svm_type,        VOptionalOpt, NULL, "SVM Type parameter (C_SVC or NU_SVC)" },
     {"svm_kernel",    VStringRepn, 1, &svm_kernel_type, VOptionalOpt, NULL, "SVM Kernel parameter (LINEAR, POLY, RBF, SIGMOID, or PRECOMPUTED)" },
     {"svm_degree",    VLongRepn,   1, &svm_degree,      VOptionalOpt, NULL, "SVM degree parameter (for POLY kernel)" },
@@ -240,6 +237,8 @@ int main (int argc,char *argv[]) {
     {"svm_nu",        VDoubleRepn, 1, &svm_nu,          VOptionalOpt, NULL, "SVM nu parameter (for NU_SVC svm type)" }
   };
   VParseFilterCmd(VNumber(program_options),program_options,argc,argv,NULL,&out_file);
+  
+  bool  do_permutations = (nperm > 0);
 
   VArgVector  input_filenames[2] = {input_filenames1,input_filenames2};
 

@@ -50,7 +50,7 @@ PCA::~PCA() {
 void PCA::printConfiguration() {
 }
 
-PrComp PCA::prcomp(matrix_2d A) {
+PrComp *PCA::prcomp(matrix_2d A) {
   // Get shape of array (m*n)
   int m = A.shape()[0];
   int n = A.shape()[1];
@@ -123,7 +123,7 @@ PrComp PCA::prcomp(matrix_2d A) {
     for (int j = 0; j < m; j++)
       x[i][j] = gsl_matrix_get(X, i, j);
 
-  PrComp result(m,n,gA_t,x,p);
+  PrComp *result = new PrComp(m,n,gA_t,x,p);
   
   gsl_vector_free(S);
   gsl_matrix_free(V);
@@ -167,7 +167,7 @@ void PrComp::invert(boost::multi_array<double,1> &weight, boost::multi_array<dou
   return;
 }
 
-void PrComp::invert_permutation(boost::multi_array<double,1> &inverted_permutated_voxel_weight, boost::multi_array<double,2> &weights, int feature_index, int permutations) {
+void PrComp::invert_permutation(vector<double> &inverted_permutated_voxel_weight, boost::multi_array<double,2> &weights, int feature_index, int permutations) {
   //struct timespec start,end;
   //clock_gettime(CLOCK_MONOTONIC,&start);
   for (int i = 0; i < permutations; i++) {

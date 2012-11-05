@@ -12,7 +12,7 @@
 #include <vector>
 #include <string>
 
-#define BOOST_DISABLE_ASSERTS
+//#define BOOST_DISABLE_ASSERTS
 #include "boost/multi_array.hpp"
 
 #define DEFAULT_MRISVM_SCALE_LOWER                -1
@@ -78,6 +78,7 @@ public:
   static  struct svm_parameter get_default_parameters();
   void set_parameters(svm_parameter);
 
+  static int generate_permutations(int n, int max_number_of_permutations, permutations_array_type &permutations);
 
 private:
   void construct(sample_features_array_type  &sample_features);
