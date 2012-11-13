@@ -163,11 +163,7 @@ int main (int argc,char *argv[]) {
 
   VImage label_image = VCreateImage(number_of_bands, number_of_rows , number_of_columns, VShortRepn);
 
-  int cluster_size_count[number_of_bands * number_of_rows * number_of_columns + 1];
-
-  for (int size = 0; size < number_of_bands * number_of_rows * number_of_columns + 1; size++) {
-    cluster_size_count[size] = 0;
-  }
+  vector<double>  cluster_sizes;
 
   int max_cluster_size = 0;
 
@@ -189,13 +185,6 @@ int main (int argc,char *argv[]) {
 
           VPixel(new_image, band, row, column, VBit) = presence;
 
-          /*
-          if (presence == 1) {
-            cerr << band << "/" << row << "/" << column << endl;
-            cerr << "Pixel: " << VGetPixel(old_image,band, row, column) << "  " << VGetPixel(t_images[0],band, row, column) << "  "<< VGetPixel(t_images[1],band, row, column) << endl;
-          }
-          */
-
         }
       }
     }
@@ -206,10 +195,13 @@ int main (int argc,char *argv[]) {
     VFillImage(label_image,VAllBands,0);
     label_image = VLabelImage3d(new_image, label_image, 26, VShortRepn, &number_of_labels);
 
-    int cluster_size[number_of_labels];
+    vector<double>  cluster_size(number_of_labels);
+    vector<int>     cluster_dimension(number_of_labels);
 
-    for (int label = 0; label < number_of_labels; label++) 
-      cluster_size[label] = 0;
+    for (int label = 0; label < number_of_labels; label++)  {
+      cluster_size[label] = 0.0;
+      cluster_dimension[label] = 0;
+    }
 
     for(int band(0); band < number_of_bands; band++) {
       for(int row(0); row < number_of_rows; row++) {
@@ -220,36 +212,51 @@ int main (int argc,char *argv[]) {
             cerr << "Got unexpected label: " << label << endl;
             exit(-1);
           }
-          if (label > 1) cluster_size[label-1]++;
+          if (label >= 1) {
+            cluster_dimension[label-1]++;
+            if (VGetPixel(old_image, band, row, column) > VGetPixel(t_images[0], band, row, column)) {
+              //cluster_size[label-1] += (VGetPixel(old_image, band, row, column) / VGetPixel(t_images[0],band, row, column) -1);
+              cluster_size[label-1] += 1;
+            } else if ((nr_images == 2) && VGetPixel(old_image, band, row, column) < VGetPixel(t_images[1],band, row, column)) {
+              //cluster_size[label-1] += (VGetPixel(old_image, band, row, column) / VGetPixel(t_images[1],band, row, column) -1);
+              cluster_size[label-1] += 1;
+            }
+          }
         }
       }
     }
+    //cerr << "Cluster Nr 1 dimension=" << cluster_dimension[0] << " size=" << cluster_size[0] << endl;
 
     for (int label = 0; label < number_of_labels; label++) {
-      cluster_size_count[cluster_size[label]]++;
-      if (cluster_size[label] > max_cluster_size)
-        max_cluster_size = cluster_size[label];
+      if (cluster_dimension[label] > 1) {
+        cluster_sizes.push_back(cluster_size[label]);
+        if (cluster_size[label] > max_cluster_size)
+          max_cluster_size = cluster_size[label];
+      }
     }
   }
 
-  int N = 0;
-  for (int size = 2; size <= max_cluster_size; size++) {
-    //cout << "Size: " << size << "|" << cluster_size_count[size] << endl;
-    N += cluster_size_count[size];
+  double N = cluster_sizes.size();
+  /*
+  BOOST_FOREACH(double this_cluster_size, cluster_sizes) {
+    N += this_cluster_size;
   }
+  */
 
-  double cluster_size_p[max_cluster_size + 1]; // |[0..max_cluster_size]| = max_cluster_size + 1
+  vector<double> cluster_size_p;
 
-  int cum_sum = 0;
+  sort(cluster_sizes.begin(),cluster_sizes.end(),std::greater<double>());
 
-  for (int size = max_cluster_size; size >= 2; size--) {
-    cum_sum += cluster_size_count[size];
-    cluster_size_p[size] = (double) cum_sum / (double) N;
+  double cum_sum = 0;
+  // FIXME totally unnecessary
+  BOOST_FOREACH(double this_size, cluster_sizes) {
+    cum_sum += 1.0;
+    cluster_size_p.push_back(cum_sum / N);
   }
 
   FILE *hist_file = fopen(hist_filename,"w");  
-  for (int size = 2; size <= max_cluster_size; size++) {
-    fprintf(hist_file,"%i\t%e\n",size,cluster_size_p[size]);
+  for (unsigned int i = 0; i < cluster_sizes.size(); i++) {
+    fprintf(hist_file,"%e\t%e\n",cluster_sizes[i],cluster_size_p[i]);
   }
   fclose(hist_file);
 

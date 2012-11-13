@@ -23,6 +23,7 @@
 
 #include "PCA.h"
 
+#define PCA_CUTOFF 1e-1
 using std::ofstream;
 using std::cerr;
 using std::cout;
@@ -55,13 +56,16 @@ PrComp *PCA::prcomp(matrix_2d A) {
   int m = A.shape()[0];
   int n = A.shape()[1];
 
+  cerr << "m=" << m << "\t" << endl;
+  cerr << "n=" << n << "\t" << endl;
+
   // Scale Matrix A along features
   for (int i = 0; i < n; i++) {
-    double sum = 0.0;
+    float sum = 0.0;
     for (int j = 0; j < m; j++)
       sum += A[j][i];
 
-    double mean = sum / m;
+    float mean = sum / m;
 
     for (int j = 0; j < m; j++)
       A[j][i] -= mean;
@@ -90,12 +94,12 @@ PrComp *PCA::prcomp(matrix_2d A) {
 
   gsl_vector_free(work);
 
-  /*
   // Let's print out vector S
   for (int s = 0; s < m; s++) {
-    cout << gsl_vector_get(S,s) << "\t";
+    cerr << "S=" << gsl_vector_get(S,s) << "\t";
   }
-  cout << endl;
+  cerr << endl;
+  /*
   // Let's print out standard deviation
   for (int s = 0; s < m; s++) {
     cout << gsl_vector_get(S,s) / sqrt(m - 1) << "\t";
@@ -112,7 +116,7 @@ PrComp *PCA::prcomp(matrix_2d A) {
   // Let's check, if we want to use all principal components
   int p = m;
   for (int s = 0; s < m; s++) {
-    if (gsl_vector_get(S,s) < 1e-6) {
+    if (gsl_vector_get(S,s) < PCA_CUTOFF) {
       p = s;
       break;
     }
@@ -123,17 +127,23 @@ PrComp *PCA::prcomp(matrix_2d A) {
     for (int j = 0; j < m; j++)
       x[i][j] = gsl_matrix_get(X, i, j);
 
-  PrComp *result = new PrComp(m,n,gA_t,x,p);
+  gsl_matrix_float *rotation = gsl_matrix_float_alloc( n, p );
+  for (int i = 0; i < n; i++)
+    for (int j = 0; j < p; j++)
+      gsl_matrix_float_set( rotation, i, j, gsl_matrix_get( gA_t, i, j) );
+
+  PrComp *result = new PrComp( m, n, rotation, x, p);
   
   gsl_vector_free(S);
   gsl_matrix_free(V);
   gsl_matrix_free(X);
   gsl_matrix_free(gA);
+  gsl_matrix_free(gA_t);
 
   return result;
 }
 
-PrComp::PrComp(int m, int n, gsl_matrix *rotation,matrix_2d x,int p) : m_(m), n_(n), p_(p), rotation_(rotation) {
+PrComp::PrComp(int m, int n, gsl_matrix_float *rotation, matrix_2d x, int p) : m_(m), n_(n), p_(p), rotation_(rotation) {
   setX(x);
 }
 
@@ -153,27 +163,58 @@ int PrComp::getP() {
   return(p_);
 }
 
-gsl_matrix *PrComp::getRotation() {
+gsl_matrix_float *PrComp::getRotation() {
   return rotation_;
 }
 
-void PrComp::invert(boost::multi_array<double,1> &weight, boost::multi_array<double,1> &inverted_weight) {
+void PrComp::invert(boost::multi_array<float, 1> &weight, boost::multi_array<float,1> &inverted_weight) {
   for (int i = 0; i < n_; i++) {
     inverted_weight[i] = 0.0;
     for (int j = 0; j < p_; j++)
-      inverted_weight[i] += weight[j] * gsl_matrix_get(rotation_,i,j);
+      inverted_weight[i] += weight[j] * gsl_matrix_float_get(rotation_,i,j);
   }
 
   return;
 }
+void PrComp::invert_matrix(boost::multi_array<float,2> &voxel_weights, boost::multi_array<float,2> &weights,int number_of_features, int number_of_permutations) {
+  cerr << "number_of_features=" << number_of_features << "number_of_permutations=" << number_of_permutations << " p=" << p_ << endl;
+  gsl_matrix_float *V = gsl_matrix_float_alloc( number_of_permutations, number_of_features );
+  gsl_matrix_float *W = gsl_matrix_float_alloc( number_of_permutations, p_ );
+  
+  for ( int i = 0; i < number_of_permutations; i++ ) {
+    for ( int j = 0; j < p_; j++ ) {
+      gsl_matrix_float_set( W, i, j, weights[i][j] );
+    }
+  }
+  
+  cerr << "S";
+  struct timespec start,end;
+  clock_gettime(CLOCK_MONOTONIC,&start);
+  gsl_blas_sgemm(CblasNoTrans,CblasTrans,1.0,W,rotation_,0.0,V);
+  clock_gettime(CLOCK_MONOTONIC,&end);
+  long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
+  cerr << "Execution time: " << execution_time / 1e9 << "s" << endl;
 
-void PrComp::invert_permutation(vector<double> &inverted_permutated_voxel_weight, boost::multi_array<double,2> &weights, int feature_index, int permutations) {
+  for (int i = 0; i < number_of_permutations; i++) {
+    for (int j = 0; j < number_of_features; j++) {
+      voxel_weights[i][j] = gsl_matrix_float_get(V,i,j);
+    }
+  }
+
+  gsl_matrix_float_free(V);
+  gsl_matrix_float_free(W);
+
+  return;
+}
+
+
+void PrComp::invert_permutation(vector<float> &inverted_permutated_voxel_weight, boost::multi_array<float,2> &weights, int feature_index, int permutations) {
   //struct timespec start,end;
   //clock_gettime(CLOCK_MONOTONIC,&start);
   for (int i = 0; i < permutations; i++) {
     inverted_permutated_voxel_weight[i] = 0.0;
     for (int j = 0; j < p_; j++) {
-      inverted_permutated_voxel_weight[i] += weights[i][j] * gsl_matrix_get(rotation_,feature_index,j);
+      inverted_permutated_voxel_weight[i] += weights[i][j] * gsl_matrix_float_get(rotation_,feature_index,j);
     }
   }
   //clock_gettime(CLOCK_MONOTONIC,&end);

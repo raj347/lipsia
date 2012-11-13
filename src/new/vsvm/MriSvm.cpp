@@ -46,7 +46,7 @@ static void print_nothing(const char *s)
  * 
  * @return rounded value
  */
-double round(double r) {
+float round(float r) {
     return (r > 0.0) ? floor(r + 0.5) : ceil(r - 0.5);
 }
 
@@ -164,7 +164,9 @@ void MriSvm::scale() {
       all_data_[sample_index].values[feature_index] -= mean;
       all_data_[sample_index].values[feature_index] /= sd;
     }
+    cerr << "fm=" << mean << " fsd=" << sd << "\t";
   }
+  cerr << endl;
 }
 
 /**
@@ -212,14 +214,15 @@ void MriSvm::printConfiguration() {
  * @return one vector of weights per permutation
  */
 
-void MriSvm::permutated_weights(boost::multi_array<double, 2> &weight_matrix, int number_of_permutations, permutations_array_type &permutations) {
+void MriSvm::permutated_weights(boost::multi_array<float , 2> &weight_matrix, int number_of_permutations, permutations_array_type &permutations) {
+  weight_matrix.resize(boost::extents[number_of_permutations][number_of_features_]);
 
   boost::progress_display show_progress(number_of_permutations);
 
 #pragma omp parallel for default(none) shared(number_of_permutations, show_progress, permutations, weight_matrix) private(boost::extents) schedule(dynamic)
   for (int permutation_loop = 0; permutation_loop < number_of_permutations; permutation_loop++) {
     struct svm_node *data_base = new svm_node[number_of_samples_];
-    boost::multi_array<double, 1> weights(boost::extents[number_of_features_]);
+    boost::multi_array<float , 1> weights;
     // Set up a SVM problem with original classes but permutated samples
     for (int sample_loop(0); sample_loop < number_of_samples_; sample_loop++) {
       int shuffled_index = permutations[permutation_loop][sample_loop];
@@ -227,7 +230,7 @@ void MriSvm::permutated_weights(boost::multi_array<double, 2> &weight_matrix, in
       data_base[sample_loop].values = all_data_[shuffled_index].values;
       data_base[sample_loop].dim    = number_of_features_;
     }
-    train_weights(weights,data_base);
+    train_weights( weights, data_base);
     for (int feature_index(0); feature_index < number_of_features_; feature_index++) {
       weight_matrix[permutation_loop][feature_index] = weights[feature_index];
     }
@@ -348,11 +351,11 @@ float MriSvm::cross_validate(int leaveout,struct svm_node *data_base) {
   
   // Calculate score
   if(parameters_.svm_type == EPSILON_SVR || parameters_.svm_type == NU_SVR) {
-    double total_error = 0.0;
+    float total_error = 0.0;
     
     for(int sample_index(0);sample_index<number_of_samples_;sample_index++) {
-      double y = classes_[sample_index];
-      double v = predictions[sample_index];
+      float y = classes_[sample_index];
+      float v = predictions[sample_index];
       total_error += (v-y)*(v-y);
     }
     return(total_error/number_of_samples_);
@@ -363,8 +366,6 @@ float MriSvm::cross_validate(int leaveout,struct svm_node *data_base) {
         ++total_correct;
     return ((float) total_correct / (float) (number_of_samples_));
   }
-
-  
 }
 
 /**
@@ -372,7 +373,7 @@ float MriSvm::cross_validate(int leaveout,struct svm_node *data_base) {
  *
  *  @return SVM weights
  */
-void MriSvm::train_weights(boost::multi_array<double,1> &weights) {
+void MriSvm::train_weights(boost::multi_array< float, 1> &weights) {
   train_weights(weights,all_data_);
   return;
 }
@@ -384,7 +385,9 @@ void MriSvm::train_weights(boost::multi_array<double,1> &weights) {
  *
  * @return SVM weights
  */
-void MriSvm::train_weights(boost::multi_array<double,1> &weights, struct svm_node *data_base) {
+void MriSvm::train_weights(boost::multi_array< float, 1> &weights, struct svm_node *data_base) {
+  weights.resize(boost::extents[number_of_features_]);
+
   svm_set_print_string_function(print_nothing);
 
   struct svm_problem  problem;
@@ -396,7 +399,7 @@ void MriSvm::train_weights(boost::multi_array<double,1> &weights, struct svm_nod
     
   for(int sample_loop(0); sample_loop < number_of_samples_;sample_loop++) {
     classes[sample_loop]            = classes_[sample_loop];
-   //cerr << " " << classes[sample_loop];
+    //cerr << "c=" << classes[sample_loop] << "\t";
   }
   //cerr << endl;
   problem.l = number_of_samples_;
@@ -406,12 +409,12 @@ void MriSvm::train_weights(boost::multi_array<double,1> &weights, struct svm_nod
 
   // Retrieve weights
   for (int i = 0; i < number_of_features_;i++) {
-   double w = 0.0;
+   float w = 0.0;
    for (int j = 0; j < model->l;j++) {
      w += model->sv_coef[0][j] * model->SV[j].values[i];
    }
    weights[i] = w;
-   //cerr << " " << w;
+   //cerr << "w=" << w << "\t";
   }
   //cerr << endl;
 

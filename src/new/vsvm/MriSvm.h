@@ -61,10 +61,10 @@ public:
   float   cross_validate(int leaveout);
   float   cross_validate(int leaveout,struct svm_node *all_data);
 
-  void    train_weights(boost::multi_array<double,1> &weights);
-  void    train_weights(boost::multi_array<double,1> &weights, struct svm_node *data_base);
+  void    train_weights(boost::multi_array<float,1> &weights);
+  void    train_weights(boost::multi_array<float,1> &weights, struct svm_node *data_base);
 
-  void permutated_weights(boost::multi_array<double, 2> &weight_matrix, int number_of_permutations, permutations_array_type &permutations);
+  void    permutated_weights(boost::multi_array<float, 2> &weight_matrix, int number_of_permutations, permutations_array_type &permutations);
   void    Permutate(permutated_validities_type &permutated_validities,
                        int number_of_permutations,
                        permutations_array_type &permutations,

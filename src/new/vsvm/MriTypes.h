@@ -12,7 +12,7 @@
 /**
  * A two-dimensional array that contains features per sample (i.e. it is samples * features)
  */
-typedef boost::multi_array<double, 2>     sample_features_array_type;
+typedef boost::multi_array<float, 2>     sample_features_array_type;
 
 /**
  * Two-dimensional array that contains a number of permutations in the form number_of_permutations x samples
@@ -25,14 +25,14 @@ typedef boost::multi_array<int, 2> permutations_array_type;
  * 
  * i.e. this data representation allows for more than one feature per voxel
  */
-typedef boost::multi_array<double, 5> sample_3d_array_type; // sample,band,row,column,feature
+typedef boost::multi_array<float, 5> sample_3d_array_type; // sample,band,row,column,feature
 
 /**
  * Representation of validities in 3D: band * row * column
  * 
  * Generated as a result by searchlighsvm
  */
-typedef boost::multi_array<double, 3> sample_validity_array_type;
+typedef boost::multi_array<float, 3> sample_validity_array_type;
 
 /**
  * Array of exactly three elements, representing 3D-Coordinates band,row,column 

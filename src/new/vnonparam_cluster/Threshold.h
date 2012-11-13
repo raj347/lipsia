@@ -25,7 +25,7 @@ class Threshold {
     virtual ~Threshold();
 
     void    printConfiguration();
-    boost::multi_array<float, 4> calculate( boost::multi_array<float, 4> &pool, double p, bool is_two_sided );
+    boost::multi_array<float, 4> calculate( boost::multi_array<float, 4> &pool, float p, bool is_two_sided );
 
 };
 
