@@ -10,7 +10,7 @@ DEB_CMAKE_EXTRA_FLAGS = \
     -DBUILD_SHARED_LIBS:BOOL=ON \
     -DCMAKE_INSTALL_RPATH="/usr/lib/lipsia" \
     -DCMAKE_SKIP_RPATH:BOOL=OFF \
-    -DQT3_SUPPORT:BOOL=ON \
+    -DQT3_SUPPORT:BOOL=OFF \
     -DITK_DIR="/usr/lib/InsightToolkit" 
 
 DEB_SHLIBDEPS_INCLUDE_lipsia = debian/lipsia/usr/lib/lipsia

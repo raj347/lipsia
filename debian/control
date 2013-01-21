@@ -2,7 +2,7 @@ Source: lipsia
 Section: science
 Priority: optional
 Maintainer: Lipsia Group (The official Lipsia developer group) <lipsia@cbs.mpg.de>
-Build-Depends: cdbs, debhelper (>= 5), cmake, fftw3-dev, libdcmtk1-dev | libdcmtk2-dev, libgsl0-dev, libqt3-compat-headers, libqt3-mt-dev, libvia-dev (>= 1.4.1), libisis-core-dev, libgl1-mesa-dev | nvidia-glx-dev, libf2c2-dev
+Build-Depends: cdbs, debhelper (>= 5), cmake, fftw3-dev, libdcmtk1-dev | libdcmtk2-dev, libgsl0-dev, libvia-dev (>= 1.4.1), libisis-core-dev, libgl1-mesa-dev | nvidia-glx-dev, libf2c2-dev, libinsighttoolkit3-dev (>= 3.20), libgdcm2-dev, libtiff-dev
 Standards-Version: 3.8.3.0
 Homepage: http://www.cbs.mpg.de/institute/software/lipsia
 Vcs-Browser: http://git.debian.org/?p=pkg-exppsy/lipsia.git
