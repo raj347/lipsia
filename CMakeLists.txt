@@ -37,7 +37,7 @@ SET(LIPSIA_LIBRARY "lipsia")
 # set the lipsia version
 SET(LIPSIA_VERSION_MAJOR "2")
 SET(LIPSIA_VERSION_MINOR "2")
-SET(LIPSIA_VERSION_PATCH "5")
+SET(LIPSIA_VERSION_PATCH "7")
 
 ADD_DEFINITIONS(-D_LIPSIA_VERSION_MAJOR=${LIPSIA_VERSION_MAJOR})
 ADD_DEFINITIONS(-D_LIPSIA_VERSION_MINOR=${${CMAKE_PROJECT_NAME}_VERSION_MINOR})
@@ -157,7 +157,7 @@ INSTALL(DIRECTORY doc/html
 
 #installing the scripts
 install(PROGRAMS src/scripts/vcreatemask DESTINATION bin)
-#install(PROGRAMS src/scripts/vnormdata DESTINATION bin)
+install(PROGRAMS src/scripts/vnormdata DESTINATION bin)
 #install(PROGRAMS src/scripts/vpreproc_gui DESTINATION bin)
 
 #############################################################

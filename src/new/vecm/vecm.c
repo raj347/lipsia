@@ -356,9 +356,9 @@ main (int argc,char *argv[])
   VImage mask=NULL;
   char prg_name[100];
   char ver[100];
-//   getLipsiaVersion(ver, sizeof(ver));
-//   sprintf(prg_name, "vecm V%s", ver);
-//   fprintf(stderr, "%s\n", prg_name);
+  getLipsiaVersion(ver, sizeof(ver));
+  sprintf(prg_name, "vecm V%s", ver);
+  fprintf(stderr, "%s\n", prg_name);
   VParseFilterCmd (VNumber (options),options,argc,argv,&in_file,&out_file);
 
 

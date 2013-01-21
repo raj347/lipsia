@@ -188,7 +188,7 @@ typename TOutput::Pointer itkAdapter::internCreateItk( const bool behaveAsItkRea
 
 	//if the user requests a 4d image we need to set these parameters
 	if ( OutputImageType::ImageDimension == 4 ) {
-		itkSpacing[3] = 0;
+		itkSpacing[3] = 1;
 		itkSize[3] = dimensions[3];
 		itkDirection[3][3] = 1; //ensures determinant is unequal 0
 	}
