@@ -40,10 +40,10 @@
 
 extern "C"
 {
-   #include <Vlib.h>
-   #include <VImage.h>
-   #include <option.h>
-   #include <mu.h>
+   #include <viaio/Vlib.h>
+   #include <viaio/VImage.h>
+   #include <viaio/option.h>
+   #include <viaio/mu.h>
 }
 
 

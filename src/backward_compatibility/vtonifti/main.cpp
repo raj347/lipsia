@@ -32,10 +32,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <Vlib.h>
-#include <VImage.h>
-#include <mu.h>
-#include <option.h>
+#include <viaio/Vlib.h>
+#include <viaio/VImage.h>
+#include <viaio/mu.h>
+#include <viaio/option.h>
 
 #include "cvimage.h"
 #include "cniftifile.h"
