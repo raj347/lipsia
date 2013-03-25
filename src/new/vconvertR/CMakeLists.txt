@@ -15,3 +15,6 @@ SET_TARGET_PROPERTIES(vconvertR PROPERTIES
 SET_TARGET_PROPERTIES(vconvertR_toV PROPERTIES
                       LINK_FLAGS -Wl)
 
+INSTALL(TARGETS vconvertR vconvertR_toV
+	RUNTIME DESTINATION bin
+	COMPONENT RuntimeLibraries)
