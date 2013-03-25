@@ -144,10 +144,10 @@ INCLUDE_DIRECTORIES(
   ${ISIS_INCLUDE_DIR}
   ${Boost_INCLUDE_DIR}
   ${NIFTI_INCLUDE_DIR}
-	)
+)
 
-SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -msse2  -fopenmp -O3  ")
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -fPIC -Wno-deprecated -msse2  -ftemplate-depth-100 -fopenmp -O3 ")
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -msse2  -fopenmp ")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -fPIC -Wno-deprecated -msse2  -ftemplate-depth-100 -fopenmp")
 
 INSTALL(DIRECTORY doc/html
   DESTINATION share/doc/lipsia

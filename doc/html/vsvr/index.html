@@ -1,0 +1,121 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html>
+  <head>
+    <title>Lipsia - Statistical evaluation</title>
+    <link href="../css/style.css" type="text/css" rel="stylesheet" />    
+
+    <script type="text/javascript"
+	      src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+      </script>
+</head>
+<body>
+
+<a href="../index.html" class="home">table of contents</a>
+<div class="toptitle">LIPSIA &nbsp;&nbsp;&nbsp; Two Group Support Vector Machine Classification</div>
+
+
+<div class="headtitle">vsvr</div>
+
+<div class="content">
+
+	<p>This program performs a support vector regression analysis on one group of contrast images where each image is associated with a dependent or response variable (e.g. age, IQ, level of enlightenment). The output is a 3D map of the weights of the classifier as well as p-values of requested.</p>
+	
+	<p> Input data consists of a set of vista files and a text file
+	containing the response values of each sample. Each vista file
+	corresponds to one sample and contains exactly one image with 3D data
+	of the brain. The 3D data can be derived from any imaginable pipeline,
+	i.e. beta values from <tt><b><a
+				href="../vcolorglm/index.html"><u>GLM</u></a></b></tt>
+	or centrality values from <tt><b><a
+				href="../vecm/index.html"><u>ECM</u></a></b></tt>.
+	The response text file contains one sample response per
+	line with a period as the decimal separator and no thousands
+	separator.</p>
+
+<br/>
+
+<p><tt><b>
+		<a href="#vsvr_parameters"><u>vsvr</u></a>
+		-in samples.v -y response.txt [-scale] [-pca] [-saveperm] [-nperm number of permutations] [-j nprocs] [svm options]
+
+</b></tt></p> 
+
+<br/>
+
+</div>
+
+<div class="subtitle">Examples for calling 'vsvr'</div>
+
+<div class="content">
+<p>Example 1:</p>
+<p><tt><b><a href="#vsr_parameters"><u>vsvr</u></a> -in data_*.v  -y resonse.txt -out data_svr.v -scale</b></tt></p>
+<p>In this example we calculate a simple support vector regression on two groups of images containing contrast images, the data gets scaled in the process, no p-values are calculated</p>
+
+<p>Example 2:</p>
+<p><tt><b><a href="#vsr_parameters"><u>vsvr</u></a> -in data_*.v  -y resonse.txt -out data_svr.v -pca -nperm 10000 -scale</b></tt></p>
+<p>In this example we calculate a simple support vector regression on two groups of images containing contrast images, the data gets scaled and piped through a principal component analysis in the process. Finally, p-values are calculated based on a permutation algorithm.</p>
+
+<br/> </div>
+
+<div class="headtitle" id="vsvr_parameters">Parameters of 'vsvr':</div>
+
+<div class="content">
+<b>General Options:</b>
+<dl>
+	<dt>-in samples*.v</dt>
+		<dd>Input files, required</dd>
+	<dt>-y response.txt</dt>
+		<dd>Response values, required</dd>
+     	<dt>-scale</dt>
+       		<dd>Whether to scale data (default: false)</dd>
+     	<dt>-pca</dt>
+       		<dd>Wheter to process data with a principal component analysis (default: false)</dd>
+     	<dt>-nperm number of permutations</dt>
+	<dd>Whether to calculate permutations and therefore p-values, number of permutations (default: 0 = do not permutate)
+	<br />
+
+	p-values are calculated with a non-parametric permutation test: For
+	each voxel, a null distribution is established by calculating support
+	vector regressions for random permutations of the original problem. A
+	random permutation of the original problem is the random assignation of
+	samples to responses. The p-value of the real weight of a voxel is then
+	the probabilty that any randomly calculated weight is either higher or
+	smaller (two-tailed) then the real weight.  <br />
+
+	Consequently, the granularity of p-values depends on the number of
+	calculated permutations \(n\). Possible p-values are \(\frac{2 * k}{n},
+	k \in [0,\frac{n}{2}] \), e.g. \(0, \frac{2}{n}, \frac{4}{n},... \).
+
+	</dd>
+     	<dt>-saveperm</dt>
+       		<dd>Whether to also write permutations to output file (default: false)</dd>
+     	<dt>-j nprocs</dt>
+       		<dd>number of processors to use, '0' to use all (default: 4)</dd>
+ </dl>
+<b>SVM Options</b>
+<dl>
+    <dt>-svm_cache_size cache_size</dt>
+	<dd>cache size parameter (in MByte; default: 100)</dd>
+    <dt>-svm_p p</dt>
+	<dd>p parameter (default: 0.1)</dd>
+    <dt>-svm_C C</dt>
+	<dd>C parameter (default: 1.0)</dd>
+</dl>
+
+</div>
+
+<br>
+<hr class="hr" />
+
+<A href="http://www.cbs.mpg.de/index.html"><img src="../images/minerva.bmp" border="0" style="margin-right:4px" align="left"></a>
+
+
+<FONT style="font-family:Arial, Helvetica; font-size:8pt;"> 
+Max Planck Institute for Human Cognitive and Brain Sciences. Further Information:
+<A href="mailto:lipsia@cbs.mpg.de">lipsia@cbs.mpg.de</A>
+<BR>Copyright &copy; 2007 Max Planck Institute for Human Cognitive and Brain Sciences.
+All rights reserved.
+
+<br><br>
+
+</BODY></HTML>
