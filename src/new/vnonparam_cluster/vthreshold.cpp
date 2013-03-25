@@ -104,8 +104,13 @@ int main (int argc,char *argv[]) {
  
   vector<VImage> source_images;
 
+  struct timespec start,end;
+  clock_gettime(CLOCK_MONOTONIC,&start);
   VAttrList attribute_list  = VReadFile(input_file, NULL);
   fclose(input_file);
+  clock_gettime(CLOCK_MONOTONIC,&end);
+  long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
+  cerr << "Reading time: " << execution_time / 1e9 << "s" << endl;
   
   if(!attribute_list)
     VError("Error reading image");
@@ -128,32 +133,11 @@ int main (int argc,char *argv[]) {
   int number_of_rows    = VImageNRows(source_images.front());
   int number_of_columns = VImageNColumns(source_images.front());
 
-  boost::multi_array<float, 4> pool(boost::extents[number_of_bands][number_of_rows][number_of_columns][pool_size]);
-
-  /*
-   */
-
-  cerr << "Converting images to boost format ... ";
-  int pool_index = 0;
-  BOOST_FOREACH(VImage image, source_images) {
-    for(int band(0); band < number_of_bands; band++) {
-      for(int row(0); row < number_of_rows; row++) {
-        for(int column(0); column < number_of_columns; column++) {
-          pool[band][row][column][pool_index] = VGetPixel(image,band,row,column);
-        }
-      }
-    }
-    pool_index++;
-  }
-  cerr << "done" << endl;
+  //boost::multi_array<float, 4> pool(boost::extents[number_of_bands][number_of_rows][number_of_columns][pool_size]);
 
   cerr << "Calculating thresholds." << endl;
-  Threshold thr;
-  boost::multi_array<float, 4> thresholds = thr.calculate(pool, p, is_two_sided);
-  cerr << "Done." << endl;
-  
-  cerr << "Writing out." << endl;
-  // Writing it out
+  clock_gettime(CLOCK_MONOTONIC,&start);
+ 
   VImage threshold_image_right = VCreateImage(number_of_bands,number_of_rows,number_of_columns,VFloatRepn);
   VFillImage(threshold_image_right, VAllBands, 0);
   VSetAttr(VImageAttrList(threshold_image_right),"name",NULL,VStringRepn,"Threshold Right Side");
@@ -167,17 +151,42 @@ int main (int argc,char *argv[]) {
     VCopyImageAttrs (source_images.front(), threshold_image_left);
   }
 
-  for(int band(0); band < number_of_bands; band++) {
+  // Calculate here
+
+  boost::progress_display histo_progress(number_of_bands * number_of_rows);
+#pragma omp parallel for default(none) shared(number_of_bands, number_of_rows, number_of_columns, pool_size, histo_progress, threshold_image_right, threshold_image_left, source_images, is_two_sided, p) schedule(dynamic)
+  for(int band = 0; band < number_of_bands; band++) {
     for(int row(0); row < number_of_rows; row++) {
       for(int column(0); column < number_of_columns; column++) {
-        VPixel(threshold_image_right, band, row, column, VFloat) = thresholds[band][row][column][0];
+        vector<float> voxel_pool(pool_size);
+       
+        for (int pool_index(0); pool_index < pool_size; pool_index++) {
+          //cerr << "Accessing: " << band << "/" << row << "/" << column << "/" << pool_index << endl;
+          voxel_pool[pool_index] = VGetPixel(source_images[pool_index], band, row, column);
+        }
 
-        if (is_two_sided)
-          VPixel(threshold_image_left, band, row, column, VFloat) = thresholds[band][row][column][1];
+        std::sort(voxel_pool.begin(), voxel_pool.end());
 
+        if (is_two_sided) {
+          int threshold_position_left   = std::max((int) floor( (p/2.0) * pool_size),0);
+          int threshold_position_right  = std::min((int) ceil((1.0 - p/2.0) * pool_size) - 1, pool_size);
+
+          VPixel(threshold_image_right, band, row, column, VFloat) = voxel_pool[threshold_position_right];
+          VPixel(threshold_image_left,  band, row, column, VFloat) = voxel_pool[threshold_position_left];
+        } else {
+          int threshold_position = std::min((int) ceil( (1.0 - p) * pool_size) - 1, pool_size);
+          VPixel(threshold_image_right, band, row, column, VFloat) = voxel_pool[threshold_position];
+        }
       }
+#pragma omp critical 
+      ++histo_progress;
     }
   }
+  cerr << "Done." << endl;
+  clock_gettime(CLOCK_MONOTONIC,&end);
+  execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
+  cerr << "Calculation time: " << execution_time / 1e9 << "s" << endl;
+
   VAttrList out_list = VCreateAttrList();
   VAppendAttr(out_list,"image",NULL,VImageRepn, threshold_image_right);
   if (is_two_sided)

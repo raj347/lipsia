@@ -32,7 +32,7 @@ public:
     matrix_2d getX();
     void invert(boost::multi_array<float,1> &weights, boost::multi_array<float,1> &inverted_weight);
     void invert_permutation(vector<float> &inverted_permutated_voxel_weight, boost::multi_array<float,2> &weights, int feature_index, int permutations);
-    void invert_matrix(boost::multi_array<float,2> &voxel_weights, boost::multi_array<float,2> &weights,int number_of_features, int number_of_permutations);
+    gsl_matrix_float *invert_matrix(gsl_matrix_float *W, int number_of_features, int number_of_permutations);
 
 private:
     void setX(matrix_2d);

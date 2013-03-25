@@ -55,8 +55,8 @@ public:
   void printConfiguration();
   static int generate_permutations(int, int, int max_number_of_permutations,permutations_array_type &permutations);
 
-  sample_validity_array_type calculate(double radius);
-  int calculate_permutations(permutated_validities_type &permutated_validities, permutations_array_type &permutations, int number_of_permutations, double radius);
+  sample_validity_array_type calculate(double radius, int leaveout);
+  int calculate_permutations(permutated_validities_type &permutated_validities, permutations_array_type &permutations, int number_of_permutations, double radius, int leaveout);
   void scale();
   void set_parameters(struct svm_parameter);
   static void shuffle(vector <int> &shuffle,int n);
@@ -74,7 +74,7 @@ private:
   vector<coords_3d>     radius_pixels(double);
   bool                  is_voxel_zero(int,int,int);
   bool                  are_coordinates_valid(int,int,int);
-  double                cross_validate(int,int,int,vector<coords_3d>&);
+  double                cross_validate(int,int,int,vector<coords_3d>&, int leaveout);
   struct svm_parameter  getDefaultParameters();
   void                  scale_voxel_feature(int band, int row, int column,int feature);
   int                   prepare_for_mrisvm(sample_features_array_type &sample_features,int band, int row, int column,vector<coords_3d> &relative_coords);
@@ -84,7 +84,8 @@ private:
                                                     int band, 
                                                     int row, 
                                                     int column,
-                                                    vector<coords_3d> &relative_coords);
+                                                    vector<coords_3d> &relative_coords,
+                                                    int leaveout);
 
   int      number_of_bands_;
   int      number_of_rows_;

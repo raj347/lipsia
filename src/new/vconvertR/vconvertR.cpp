@@ -32,6 +32,7 @@
 #include <viaio/VImage.h>
 #include <viaio/mu.h>
 #include <viaio/option.h>
+#include <viaio/file.h>
 
 #define DEFAULT_VSVM_IMAGE_CLASS 0
 
@@ -50,6 +51,8 @@ bool are_coordinates_valid(int band,int row, int column, int number_of_bands, in
 bool is_voxel_or_surrounding_filled(VImage this_image,int band,int row,int column,int number_of_bands, int number_of_rows, int number_of_columns) {
   if (VGetPixel(this_image,band,row,column) != 0.0)
     return true;
+  else
+    return false;
 
   int surrounding = 0;
   for (int rel_band_index = -1;rel_band_index <= 1; rel_band_index++) {
@@ -80,16 +83,45 @@ int main (int argc,char *argv[]) {
   // Parse command line parameters
   static VArgVector input_filenames;
   VString output_filename = NULL;
+  VString mask_filename   = NULL;
   VBoolean  filter_empty = false;
   VShort  image_position = 0;
 
   static VOptionDescRec program_options[] = {
-    {"in",        VStringRepn,  0, &input_filenames, VRequiredOpt, NULL, "Input files" },
-    {"out",       VStringRepn,  1, &output_filename, VRequiredOpt, NULL, "Output file" },
-    {"position",  VShortRepn,   1, &image_position, VRequiredOpt, NULL, "Position of selected Image (0=all)" },
-    {"filter",    VBooleanRepn, 1, &filter_empty,  VOptionalOpt, NULL, "Whether to filter out empty voxels"}
+    {"in",        VStringRepn,  0, &input_filenames,  VRequiredOpt, NULL, "Input files" },
+    {"out",       VStringRepn,  1, &output_filename,  VRequiredOpt, NULL, "Output file" },
+    {"mask",      VStringRepn,  1, &mask_filename,     VOptionalOpt, NULL, "Mask file" },
+    {"position",  VShortRepn,   1, &image_position,   VRequiredOpt, NULL, "Position of selected Image (0=all)" },
+    {"filter",    VBooleanRepn, 1, &filter_empty,     VOptionalOpt, NULL, "Whether to filter out empty voxels"}
   };
   VParseFilterCmd(VNumber (program_options),program_options,argc,argv,NULL,NULL);
+
+  VImage mask = NULL;
+
+  if (mask_filename != NULL) {
+    FILE *fp        = VOpenInputFile(mask_filename, TRUE);
+    VAttrList list  = VReadFile(fp, NULL);
+    fclose(fp);
+
+    if(!list)
+      VError("Error reading mask image");
+
+    VAttrListPosn posn;
+
+    for (VFirstAttr(list, &posn); VAttrExists(&posn); VNextAttr(&posn)) {
+
+      if(VGetAttrRepn(& posn) != VImageRepn)
+        continue;
+
+      VGetAttrValue(&posn, NULL, VImageRepn, &mask);
+
+      if(VPixelRepn(mask) != VBitRepn)
+        VError(" mask image must be of type bit");
+
+      break;
+    }
+  }
+
 
   /*******************************************
    * Read image files and extract image data *
@@ -218,11 +250,17 @@ int main (int argc,char *argv[]) {
 //  outputr << endl;
 
   // Data
+  if (mask != NULL) {
+    cerr << "Will filter based on mask" << endl;
+  }
+
   boost::progress_display convert_progress(number_of_bands * number_of_rows * number_of_columns);
   for(int band(0); band < number_of_bands; band++) {
     for(int row(0); row < number_of_rows; row++) {
       for(int column(0); column < number_of_columns; column++) {
-        if (!(filter_empty && voxel_is_empty[band][row][column])) {
+        bool filter_voxel = filter_empty && ((mask == NULL && voxel_is_empty[band][row][column]) || (mask != NULL && VGetPixel(mask,band,row,column) == 0));
+
+        if (!filter_voxel) {
           for (int feature(0); feature < number_of_features_per_voxel; feature++) {
             outputr << "\"" << band << " " << row << " " << column << " " << feature << "\"";
             for (int sample_index(0); sample_index < number_of_samples; sample_index++) {

@@ -201,6 +201,7 @@ int main (int argc,char *argv[]) {
 
   VShort            nproc           = 4;
   VShort            nperm           = 0;
+  VShort            leaveout        = 2;
   static VArgVector input_filenames1,input_filenames2;
 
   /* 
@@ -226,6 +227,7 @@ int main (int argc,char *argv[]) {
     {"saveperms",     VBooleanRepn,1, &save_perms,      VOptionalOpt, NULL, "Whether to store permutations" },
     {"j",             VShortRepn,  1, &nproc,           VOptionalOpt, NULL, "number of processors to use, '0' to use all" },
     {"nperm",         VShortRepn,  1, &nperm,           VOptionalOpt, NULL, "number of permutations to generate" },
+    {"l",             VShortRepn,  1, &leaveout,        VOptionalOpt, NULL, "leaveout" },
     {"svm_type",      VStringRepn, 1, &svm_type,        VOptionalOpt, NULL, "SVM Type parameter (C_SVC or NU_SVC)" },
     {"svm_kernel",    VStringRepn, 1, &svm_kernel_type, VOptionalOpt, NULL, "SVM Kernel parameter (LINEAR, POLY, RBF, SIGMOID, or PRECOMPUTED)" },
     {"svm_degree",    VLongRepn,   1, &svm_degree,      VOptionalOpt, NULL, "SVM degree parameter (for POLY kernel)" },
@@ -416,18 +418,18 @@ int main (int argc,char *argv[]) {
   
   sl.set_parameters(parameter);
   
-  /* Measure time */
-  struct timespec start,end;
-  clock_gettime(CLOCK_MONOTONIC,&start);
 
   if (do_scale) {
     sl.scale();
   }
 
-  sample_validity_array_type validities = sl.calculate(radius);
+  /* Measure time */
+  struct timespec start,end;
+  clock_gettime(CLOCK_MONOTONIC,&start);
+
+  sample_validity_array_type validities = sl.calculate(radius,leaveout);
 
   clock_gettime(CLOCK_MONOTONIC,&end);
-
   long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
   cout << "Execution time: " << execution_time / 1e9 << "s" << endl;
 
@@ -439,7 +441,7 @@ int main (int argc,char *argv[]) {
     clock_gettime(CLOCK_MONOTONIC,&start);
     permutated_validities.resize(boost::extents[number_of_bands][number_of_rows][number_of_columns][nperm]);
 
-    actual_permutations = sl.calculate_permutations(permutated_validities,permutations,nperm,radius);
+    actual_permutations = sl.calculate_permutations( permutated_validities, permutations, nperm, radius, leaveout);
     cerr << "Actual permutations: " << actual_permutations << endl;
 
     clock_gettime(CLOCK_MONOTONIC,&end);
@@ -468,33 +470,37 @@ int main (int argc,char *argv[]) {
   
   cerr << "Copied attributes" << endl;
 
-  cerr << "starting" << endl;
+  cerr << "Starting" << endl;
+
+  vector<float> voxel_specific_permutations(actual_permutations);
   for(int band(0); band < number_of_bands; band++) {
     for(int row(0); row < number_of_rows; row++) {
       for(int column(0); column < number_of_columns; column++) {
         VPixel(dest,band,row,column,VFloat) = validities[band][row][column];
 
         if (do_permutations) {
-          if (fabs(validities[band][row][column] - 0.0) < 1e-8) {
-            VPixel(p_dest,band,row,column,VFloat) = 0.0;
-          } else {
-
-            double sum = 0.0;
-            for (int i(0); i < actual_permutations; i++)
-              sum += permutated_validities[band][row][column][i];
-
-
-            double mean = sum / actual_permutations;
-            double sd = 0.0;
-            for (int i(0); i < actual_permutations; i++) {
-              double diff = mean - permutated_validities[band][row][column][i];
-              sd += diff * diff;
-            }
-            sd = sqrt(sd/(actual_permutations - 1));
-            double z = (validities[band][row][column] - mean) / sd;
-
-            VPixel(p_dest,band,row,column,VFloat) = z;
+          for (int i = 0; i < actual_permutations; i++) {
+            voxel_specific_permutations[i] = permutated_validities[band][row][column][i];
           }
+          std::sort( voxel_specific_permutations.begin(), voxel_specific_permutations.end());
+      
+          int weight_index(0);
+          for (; (weight_index < actual_permutations) && (voxel_specific_permutations[weight_index] < validities[band][row][column]); weight_index++) {
+          }
+      
+          float p = (float) weight_index / (float) actual_permutations;
+          
+          // Correct for two sided test
+          if (p > 0.5)
+            p = 1 - p;
+
+          p *= 2;
+
+          // Correction for 0, do not double!
+          if ((weight_index == 0) || (weight_index == actual_permutations))
+            p = 1.0 / (float) actual_permutations;
+      
+          VPixel(p_dest,band,row,column,VFloat) = -log10(p);
         }
       }
     }
@@ -503,7 +509,7 @@ int main (int argc,char *argv[]) {
   cerr << "done." << endl;
   cerr << "Writing to disk ...";
   VSetAttr(VImageAttrList(dest),"name",NULL,VStringRepn,"SearchlightSVM CV");
-  VSetAttr(VImageAttrList(p_dest),"name",NULL,VStringRepn,"SearchlightSVM Z");
+  VSetAttr(VImageAttrList(p_dest),"name",NULL,VStringRepn,"SearchLightSVM non-parametric p");
   VAttrList out_list = VCreateAttrList();
   VAppendAttr(out_list,"image",NULL,VImageRepn,dest);
   if (do_permutations) {

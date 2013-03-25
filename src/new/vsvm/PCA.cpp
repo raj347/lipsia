@@ -32,7 +32,6 @@ using std::vector;
 
 /**
  * PCA implements SVD-based PCA
- * 
  */
 PCA::PCA()
 {
@@ -59,7 +58,7 @@ PrComp *PCA::prcomp(matrix_2d A) {
   cerr << "m=" << m << "\t" << endl;
   cerr << "n=" << n << "\t" << endl;
 
-  // Scale Matrix A along features
+  // Center Matrix A along features
   for (int i = 0; i < n; i++) {
     float sum = 0.0;
     for (int j = 0; j < m; j++)
@@ -128,6 +127,7 @@ PrComp *PCA::prcomp(matrix_2d A) {
       x[i][j] = gsl_matrix_get(X, i, j);
 
   gsl_matrix_float *rotation = gsl_matrix_float_alloc( n, p );
+  cerr << "Dimensions of R: " << n << "x" << p << endl; 
   for (int i = 0; i < n; i++)
     for (int j = 0; j < p; j++)
       gsl_matrix_float_set( rotation, i, j, gsl_matrix_get( gA_t, i, j) );
@@ -176,35 +176,20 @@ void PrComp::invert(boost::multi_array<float, 1> &weight, boost::multi_array<flo
 
   return;
 }
-void PrComp::invert_matrix(boost::multi_array<float,2> &voxel_weights, boost::multi_array<float,2> &weights,int number_of_features, int number_of_permutations) {
+
+gsl_matrix_float *PrComp::invert_matrix(gsl_matrix_float* W, int number_of_features, int number_of_permutations) {
   cerr << "number_of_features=" << number_of_features << "number_of_permutations=" << number_of_permutations << " p=" << p_ << endl;
   gsl_matrix_float *V = gsl_matrix_float_alloc( number_of_permutations, number_of_features );
-  gsl_matrix_float *W = gsl_matrix_float_alloc( number_of_permutations, p_ );
-  
-  for ( int i = 0; i < number_of_permutations; i++ ) {
-    for ( int j = 0; j < p_; j++ ) {
-      gsl_matrix_float_set( W, i, j, weights[i][j] );
-    }
-  }
-  
-  cerr << "S";
+ 
+  cerr << "Dimensions of V: " << number_of_permutations << "x" << number_of_features << endl; 
   struct timespec start,end;
   clock_gettime(CLOCK_MONOTONIC,&start);
-  gsl_blas_sgemm(CblasNoTrans,CblasTrans,1.0,W,rotation_,0.0,V);
+  gsl_blas_sgemm( CblasNoTrans, CblasTrans, 1.0, W, rotation_, 0.0, V);
   clock_gettime(CLOCK_MONOTONIC,&end);
   long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
   cerr << "Execution time: " << execution_time / 1e9 << "s" << endl;
 
-  for (int i = 0; i < number_of_permutations; i++) {
-    for (int j = 0; j < number_of_features; j++) {
-      voxel_weights[i][j] = gsl_matrix_float_get(V,i,j);
-    }
-  }
-
-  gsl_matrix_float_free(V);
-  gsl_matrix_float_free(W);
-
-  return;
+  return V;
 }
 
 

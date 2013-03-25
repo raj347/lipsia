@@ -38,7 +38,7 @@ Threshold::Threshold()
 Threshold::~Threshold() {
 }
 
-boost::multi_array<float, 4> Threshold::calculate(boost::multi_array<float, 4> &pool, double p, bool is_two_sided) {
+boost::multi_array<float, 4> Threshold::calculate(boost::multi_array<float, 4> &pool, float p, bool is_two_sided) {
   int number_of_bands         = pool.shape()[0];
   int number_of_rows          = pool.shape()[1];
   int number_of_columns       = pool.shape()[2];

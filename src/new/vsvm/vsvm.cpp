@@ -80,6 +80,12 @@ using std::stringstream;
 
 extern "C" void getLipsiaVersion(char*,size_t);
 
+struct xyz_coords {
+  int band;
+  int row;
+  int column;
+};
+
 #ifdef _OPENMP
 #include <omp.h>
 #endif /*_OPENMP*/
@@ -94,7 +100,10 @@ void configure_omp(int nproc) {
   int number_of_cores = omp_get_num_procs();
   if (nproc > 0 && nproc < number_of_cores) 
     number_of_cores = nproc;
-  cerr << "Using " << number_of_cores << "cores" << endl;
+  if (number_of_cores == 1)
+    cerr << "Using 1 core" << endl;
+  else
+    cerr << "Using " << number_of_cores << " cores" << endl;
   omp_set_num_threads(number_of_cores);
 }
 #endif /*OPENMP */
@@ -118,6 +127,7 @@ int main (int argc,char *argv[]) {
   VBoolean    do_scale      = false;
   VBoolean    do_pca        = false;
   VBoolean    save_perms    = false;
+  VBoolean    paired        = false;
   VShort      nproc         = 4;
   VLong       nperm         = 0;
 
@@ -136,6 +146,7 @@ int main (int argc,char *argv[]) {
     {"permfile",      VStringRepn,  1, &perm_filename,    VOptionalOpt, NULL, "File to store permutations (if extra file)" },
     {"j",             VShortRepn,   1, &nproc,            VOptionalOpt, NULL, "number of processors to use, '0' to use all" },
     {"nperm",         VLongRepn,    1, &nperm,            VOptionalOpt, NULL, "number of permutations to generate (default: 0)" },
+    {"paired",        VBooleanRepn, 1, &paired,           VOptionalOpt, NULL, "Conduct a paired test" },
     {"svm_cache_size",VDoubleRepn,  1, &svm_cache_size,   VOptionalOpt, NULL, "SVM cache size parameter (in MByte)" },
     {"svm_eps",       VDoubleRepn,  1, &svm_eps,          VOptionalOpt, NULL, "SVM eps parameter (stopping criteria)" },
     {"svm_C",         VDoubleRepn,  1, &svm_C,            VOptionalOpt, NULL, "SVM C parameter (for C_SVC svm type)" }
@@ -262,13 +273,19 @@ int main (int argc,char *argv[]) {
   cerr << "  Using " << used_voxels << " of " << number_of_voxels << " voxels in the images." << endl;
   matrix_2d sample_features(boost::extents[number_of_samples][used_voxels]);
 
+  boost::multi_array<struct xyz_coords, 1> feature_coords(boost::extents[used_voxels]);
+
   for(int sample_index(0); sample_index < number_of_samples; sample_index++) {
     int feature_index(0);
     for(int band(0); band < number_of_bands; band++) {
       for(int row(0); row < number_of_rows; row++) {
         for(int column(0); column < number_of_columns; column++) {
           if (!voxel_is_empty[band][row][column]) {
+            //cerr << "f=" << feature_index << " (" << band << "/" << row << "/" << column << ")" << endl;
             sample_features[sample_index][feature_index] = VGetPixel(source_images[sample_index],band,row,column);
+            feature_coords[feature_index].band    = band;
+            feature_coords[feature_index].row     = row;
+            feature_coords[feature_index].column  = column;
             feature_index++;
           }
         }
@@ -276,6 +293,20 @@ int main (int argc,char *argv[]) {
     }
   }
   cerr << "done." << endl;
+
+  if (paired) {
+    int pairs = number_of_samples / 2;
+    // Generate distances and stuff
+    for(int pair_loop(0); pair_loop < pairs; pair_loop++) {
+      cerr << "Difference between " << pair_loop << "(" << ((VStringConst *) input_filenames[0].vector)[pair_loop] << ") and " << (pair_loop + pairs) << "(" << ((VStringConst *) input_filenames[1].vector)[pair_loop] << ")" << endl;
+      for (int feature_index = 0; feature_index < used_voxels; feature_index++) {
+        double diff = sample_features[pair_loop + pairs][feature_index] - sample_features[pair_loop][feature_index];
+        sample_features[pair_loop + pairs][feature_index] = diff;
+        sample_features[pair_loop][feature_index] = -1.0 * diff;
+      }
+    }
+  }
+
   
   /* Prepare output images (as long as we have the source images) */
   VImage dest = VCreateImage(number_of_bands,number_of_rows,number_of_columns,VFloatRepn);
@@ -300,7 +331,14 @@ int main (int argc,char *argv[]) {
      * Conduct PCA *
      ***************/
     cerr << "Conducting PCA ... ";
+    struct timespec start,end;
+    clock_gettime(CLOCK_MONOTONIC,&start);
     pca_result = PCA::prcomp(sample_features);
+    clock_gettime(CLOCK_MONOTONIC,&end);
+
+    long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
+    cerr << "Execution time: " << execution_time / 1e9 << "s" << endl;
+    cerr << "done." << endl;
     number_of_svm_features = pca_result->getP();
 
     matrix_2d X = pca_result->getX();
@@ -344,6 +382,7 @@ int main (int argc,char *argv[]) {
   // Get weights
   boost::multi_array<float, 1> weights;
   mrisvm.train_weights(weights);
+  //cerr << "CV" << mrisvm.cross_validate(2) << endl;
   clock_gettime(CLOCK_MONOTONIC,&end);
 
   long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
@@ -362,33 +401,33 @@ int main (int argc,char *argv[]) {
   /****************
    * Permutations *
    ****************/
-  boost::multi_array<float, 2>  permutation_weights; // trained weights
-  boost::multi_array<float, 2>  voxel_permutation_weights; // inverted weights (if pca was done)
+  gsl_matrix_float* voxel_permutation_weights = NULL;
+  gsl_matrix_float* permutation_weights       = NULL;
+  
   int actual_permutations = 0;
   permutations_array_type permutations;
 
   if (do_permutations) {
     cerr << "Calculating SVM of permutations ... ";
-    actual_permutations = MriSvm::generate_permutations(number_of_samples, nperm, permutations);
-    cerr << "Actual number of permutations: " << actual_permutations << endl;
-    // FIXME memory hog ...
-    voxel_permutation_weights.resize(boost::extents[actual_permutations][used_voxels]);
+    if (paired)
+      actual_permutations = MriSvm::generate_paired_permutations(number_of_samples, nperm, permutations);
+    else
+      actual_permutations = MriSvm::generate_permutations(number_of_samples, nperm, permutations);
 
-    mrisvm.permutated_weights( permutation_weights, actual_permutations, permutations );
+    cerr << "Actual number of permutations: " << actual_permutations << endl;
+    permutation_weights = mrisvm.permutated_weights( actual_permutations, permutations );
     
     cerr << "done." << endl;
 
     if (do_pca) {
       // invert matrix
       cerr << "Inverting Matrix... ";
-      pca_result->invert_matrix( voxel_permutation_weights, permutation_weights, used_voxels, actual_permutations);
+      voxel_permutation_weights = pca_result->invert_matrix( permutation_weights, used_voxels, actual_permutations);
       cerr << "done." << endl;
+      gsl_matrix_float_free(permutation_weights);
     } else {
       voxel_permutation_weights = permutation_weights;
     }
-    // FIXME stupid, stupid, stupid
-    permutation_weights.resize(boost::extents[0][0]);
-    
   }
 
   /****************
@@ -400,65 +439,49 @@ int main (int argc,char *argv[]) {
   VAttrList out_list = VCreateAttrList();
 
   vector<float> voxel_specific_permutations(actual_permutations);
-  int feature_index = 0;
-  for(int band = 0; band < number_of_bands; band++) {
-    for(int row(0); row < number_of_rows; row++) {
-      for(int column(0); column < number_of_columns; column++) {
-        if (!voxel_is_empty[band][row][column]) {
-          clock_gettime(CLOCK_MONOTONIC,&start);
-          /****************
-           * Write weight *
-           ****************/
-          VPixel(dest,band,row,column,VFloat) = voxel_weights[feature_index];
-         
-          if (do_permutations) {
-            /*****************
-             * Write p value *
-             *****************/
-            struct timespec i_start,i_end;
-            clock_gettime(CLOCK_MONOTONIC,&i_start);
-            for (int i = 0; i < actual_permutations; i++) {
-              voxel_specific_permutations[i] = voxel_permutation_weights[i][feature_index];
-            }
 
-            clock_gettime(CLOCK_MONOTONIC,&i_end);
-            long long int i_execution_time = (i_end.tv_sec * 1e9 + i_end.tv_nsec) - (i_start.tv_sec * 1e9 + i_start.tv_nsec);
-            //cerr << "i:" << i_execution_time / 1e6 << "ms\t";
+#pragma omp parallel for default(none) shared(feature_coords, dest, p_dest, writing_progress,  do_permutations, voxel_permutation_weights, actual_permutations, voxel_weights, used_voxels, cerr) firstprivate(voxel_specific_permutations) schedule(dynamic)
+  for (int feature_index = 0; feature_index < used_voxels; feature_index++) {
+    int band    = feature_coords[feature_index].band;
+    int row     = feature_coords[feature_index].row;
+    int column  = feature_coords[feature_index].column;
 
-            struct timespec a_start,a_end;
-            clock_gettime(CLOCK_MONOTONIC,&a_start);
-            // Sort permutated voxel weights
-            std::sort( voxel_specific_permutations.begin(), voxel_specific_permutations.end());
+    //cerr << "f=" << feature_index << " (" << band << "/" << row << "/" << column << ")" << endl;
 
-            int weight_index(0);
-            for (; (weight_index < actual_permutations) && (voxel_specific_permutations[weight_index] < voxel_weights[feature_index]); weight_index++) {
-            }
+    /****************
+     * Write weight *
+     ****************/
+    VPixel(dest,band,row,column,VFloat) = voxel_weights[feature_index];
 
-            float p = (float) weight_index / (float) actual_permutations;
-
-            // Correct for two sided test
-            if (p > 0.5)
-              p = 1 - p;
-
-            p *= 2;
-
-            // Correction for 0, do not double!
-            if ((weight_index == 0) || (weight_index == actual_permutations))
-              p = 1.0 / (float) actual_permutations;
-
-            VPixel(p_dest,band,row,column,VFloat) = -log10(p);
-            clock_gettime(CLOCK_MONOTONIC,&a_end);
-            long long int a_execution_time = (a_end.tv_sec * 1e9 + a_end.tv_nsec) - (a_start.tv_sec * 1e9 + a_start.tv_nsec);
-            //cerr << "a:" << a_execution_time / 1e6 << "ms\t";
-          }
-          feature_index++;
-          ++writing_progress;
-          clock_gettime(CLOCK_MONOTONIC,&end);
-          long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
-          //cerr << "e:" << execution_time / 1e6 << "ms\t";
-        }
+    if (do_permutations) {
+      /*****************
+       * Write p value *
+       *****************/
+      for (int i = 0; i < actual_permutations; i++) {
+        voxel_specific_permutations[i] = gsl_matrix_float_get(voxel_permutation_weights, i, feature_index);
       }
+
+      std::sort( voxel_specific_permutations.begin(), voxel_specific_permutations.end());
+
+      int weight_index(0);
+      for (; (weight_index < actual_permutations) && (voxel_specific_permutations[weight_index] < voxel_weights[feature_index]); weight_index++) {
+      }
+
+      float p = (float) weight_index / (float) actual_permutations;
+
+      // Correct for two sided test
+      if (p > 0.5)
+        p = 1 - p;
+
+      p *= 2;
+
+      // Correction for 0, do not double!
+      if ((weight_index == 0) || (weight_index == actual_permutations))
+        p = 1.0 / (float) actual_permutations;
+
+      VPixel(p_dest,band,row,column,VFloat) = -log10(p);
     }
+    ++writing_progress;
   }
 
   VSetAttr(VImageAttrList(dest),"name",NULL,VStringRepn,"PCA SVM Weights");
@@ -488,7 +511,7 @@ int main (int argc,char *argv[]) {
         for(int row(0); row < number_of_rows; row++) {
           for(int column(0); column < number_of_columns; column++) {
             if (!voxel_is_empty[band][row][column]) {
-              VPixel(permutation_dest,band,row,column,VFloat) = voxel_permutation_weights[permutation_loop][feature_index];
+              VPixel(permutation_dest,band,row,column,VFloat) = gsl_matrix_float_get( voxel_permutation_weights, permutation_loop ,feature_index);
               feature_index++;
             }
           }

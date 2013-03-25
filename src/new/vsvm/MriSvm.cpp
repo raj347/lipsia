@@ -139,10 +139,10 @@ void MriSvm::prepare_all_data(sample_features_array_type  &sample_features) {
 }
 
 /**
- * Rescale data to be in the distribution N(0,1)
+ * Normalize data to be in the distribution N(0,1)
  */
 
-void MriSvm::scale() {
+void MriSvm::normalize() {
   for(long int feature_index(0); feature_index < number_of_features_; feature_index++) {
     // Find mean
     double sum = 0.0;
@@ -164,9 +164,41 @@ void MriSvm::scale() {
       all_data_[sample_index].values[feature_index] -= mean;
       all_data_[sample_index].values[feature_index] /= sd;
     }
-    cerr << "fm=" << mean << " fsd=" << sd << "\t";
+    //cerr << "fm=" << mean << " fsd=" << sd << "\t";
   }
   cerr << endl;
+}
+
+/**
+ * Scale data to the range [-1,+1]
+ */
+
+void MriSvm::scale() {
+
+  for(long int feature_index(0); feature_index < number_of_features_; feature_index++) {
+    // Find range of values of this feature
+    double max = DBL_MIN;
+    double min = DBL_MAX;
+    for (long int sample_index(0); sample_index < number_of_samples_; sample_index++) {
+      double x = all_data_[sample_index].values[feature_index];
+      if (x < min) {
+        min = x;
+      }
+      if (x > max) {
+        max = x;
+      }
+    }
+
+    // Center and scale
+    for (long int sample_index(0); sample_index < number_of_samples_; sample_index++) {
+      double x = all_data_[sample_index].values[feature_index];
+      double lower = -1;
+      double upper = 1;
+
+      all_data_[sample_index].values[feature_index] = lower + (upper - lower) * (x - min) / (max - min);
+    }
+  }
+
 }
 
 /**
@@ -214,12 +246,13 @@ void MriSvm::printConfiguration() {
  * @return one vector of weights per permutation
  */
 
-void MriSvm::permutated_weights(boost::multi_array<float , 2> &weight_matrix, int number_of_permutations, permutations_array_type &permutations) {
-  weight_matrix.resize(boost::extents[number_of_permutations][number_of_features_]);
+gsl_matrix_float *MriSvm::permutated_weights( int number_of_permutations, permutations_array_type &permutations) {
+  gsl_matrix_float *weight_matrix_gsl = gsl_matrix_float_alloc( number_of_permutations, number_of_features_ );
+  cerr << "Dimensions of W: " << number_of_permutations << "x" << number_of_features_ << endl; 
 
   boost::progress_display show_progress(number_of_permutations);
 
-#pragma omp parallel for default(none) shared(number_of_permutations, show_progress, permutations, weight_matrix) private(boost::extents) schedule(dynamic)
+#pragma omp parallel for default(none) shared(number_of_permutations, show_progress, permutations, weight_matrix_gsl) private(boost::extents) schedule(dynamic)
   for (int permutation_loop = 0; permutation_loop < number_of_permutations; permutation_loop++) {
     struct svm_node *data_base = new svm_node[number_of_samples_];
     boost::multi_array<float , 1> weights;
@@ -232,7 +265,7 @@ void MriSvm::permutated_weights(boost::multi_array<float , 2> &weight_matrix, in
     }
     train_weights( weights, data_base);
     for (int feature_index(0); feature_index < number_of_features_; feature_index++) {
-      weight_matrix[permutation_loop][feature_index] = weights[feature_index];
+      gsl_matrix_float_set(weight_matrix_gsl, permutation_loop, feature_index, weights[feature_index]);
     }
     delete [] data_base;
 
@@ -240,7 +273,7 @@ void MriSvm::permutated_weights(boost::multi_array<float , 2> &weight_matrix, in
     ++show_progress;
   }
 
-  return;
+  return weight_matrix_gsl;
 }
 
 /**
@@ -324,26 +357,32 @@ float MriSvm::cross_validate(int leaveout,struct svm_node *data_base) {
   int count = number_of_samples_ / leaveout;
   if ((number_of_samples_ % leaveout) != 0)
     count++;
-  
+ 
   for(int cross_validation_loop(0); cross_validation_loop < count; cross_validation_loop++) {
     volatile int trainings_index = 0;
+    //cerr << "Trainings samples" << endl; 
     for(int trainings_loop(0); trainings_loop < number_of_samples_;trainings_loop++) {
       if ((trainings_loop % count) != cross_validation_loop) {
+        //cerr << trainings_loop << "\t";
         training_classes[trainings_index]           = classes_[trainings_loop];
         trainings_problem.x[trainings_index].values = data_base[trainings_loop].values;
         trainings_problem.x[trainings_index].dim    = number_of_features_;
         trainings_index++;
       }
     }
+    //cerr << endl;
     trainings_problem.l = trainings_index;
     
     // Train SVM
     struct svm_model *trained_model = svm_train(&trainings_problem,&parameters_);
     
     // Predict
+    //cerr << "Prediction samples" << endl; 
     for (int prediction_index = cross_validation_loop; prediction_index < number_of_samples_; prediction_index += count) {
+      //cerr << prediction_index << "\t";
       predictions[prediction_index] = svm_predict(trained_model,&(data_base[prediction_index]));
     }
+    //cerr << endl;
     /* Free all that unnecessary stuff */
     svm_free_and_destroy_model(&trained_model);
   }
@@ -405,6 +444,7 @@ void MriSvm::train_weights(boost::multi_array< float, 1> &weights, struct svm_no
   problem.l = number_of_samples_;
 
   // Train
+  //cerr << "Parameter C during training: " << parameters_.C << endl;
   struct svm_model    *model = svm_train(&problem,&parameters_);
 
   // Retrieve weights
@@ -491,5 +531,47 @@ int MriSvm::generate_permutations(int n, int max_number_of_permutations, permuta
       }
       return max_number_of_permutations;
 
+}
+
+int MriSvm::generate_paired_permutations(int n, int max_number_of_permutations, permutations_array_type &permutations) {
+  if (n % 2 == 1) {
+    cerr << "Number of samples need to be even but n=" << n << endl;
+    exit(-1);
+  }
+
+  int pairs = n/2;
+
+  if (n > 128) {
+    cerr << "Oy! " << n << " samples are a bit too much for us at the moment." << endl;
+    exit(-1);
+  }
+
+  long long int max_possible_permutations = pow(2,pairs);
+
+  if (max_possible_permutations < max_number_of_permutations) {
+    cerr << "Oy! " << max_number_of_permutations << " permutations are a bit too much for us at the moment." << endl;
+  }
+
+  permutations.resize(boost::extents[max_number_of_permutations][n]);
+
+  for (int permutation_loop(0); permutation_loop < max_number_of_permutations; permutation_loop++) {
+    for (int pair_loop(0); pair_loop < pairs; pair_loop++) {
+      if (drand48() >= 0.5) {
+        // Keep pair's affiliation
+        permutations[permutation_loop][pair_loop]         = pair_loop;
+        permutations[permutation_loop][pair_loop + pairs] = pair_loop + pairs;
+      } else {
+        // Switch pair's affiliation
+        permutations[permutation_loop][pair_loop]         = pair_loop + pairs;
+        permutations[permutation_loop][pair_loop + pairs] = pair_loop;
+      }
+    }
+    //for (int sample_loop(0); sample_loop < n; sample_loop++) {
+    //  cerr << permutations[permutation_loop][sample_loop] << "\t";
+    //}
+    //cerr << endl;
+  }
+
+  return max_number_of_permutations;
 }
 

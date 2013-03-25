@@ -175,7 +175,7 @@ vector<coords_3d> SearchLight::radius_pixels(double radius) {
 bool SearchLight::is_voxel_zero(int band,int row,int column) {
   for (int sample(0);sample < number_of_samples_;sample++) {
     for(int feature_index(0); feature_index < number_of_features_per_voxel_; feature_index++) {
-      if (sample_features_[sample][band][row][column][feature_index] != 0.0)
+      if ((sample_features_[sample][band][row][column][feature_index] != 0.0) && (!isnan(sample_features_[sample][band][row][column][feature_index])))
         return(false);
     }
   }
@@ -244,7 +244,7 @@ int SearchLight::prepare_for_mrisvm(sample_features_array_type &sample_features,
  *
  * @return cross validity of the support vector machine for the searchlight at this voxel
  */
-double SearchLight::cross_validate(int band, int row, int column,vector<coords_3d> &relative_coords) {
+double SearchLight::cross_validate(int band, int row, int column,vector<coords_3d> &relative_coords, int leaveout) {
   int number_of_features = relative_coords.size() * number_of_features_per_voxel_;
   
   sample_features_array_type sample_features(boost::extents[number_of_samples_][number_of_features]);
@@ -259,7 +259,7 @@ double SearchLight::cross_validate(int band, int row, int column,vector<coords_3
   
   mrisvm.set_parameters(parameters_);
   
-  return(mrisvm.cross_validate(number_of_classes_));
+  return(mrisvm.cross_validate(leaveout));
 }
 
 /**
@@ -283,8 +283,8 @@ void SearchLight::cross_validate_permutations(permutated_validities_type  &permu
                                               int                         band,
                                               int                         row, 
                                               int                         column,
-                                              vector<coords_3d>           &relative_coords) {
-  int leaveout = number_of_classes_;
+                                              vector<coords_3d>           &relative_coords,
+                                              int                         leaveout) {
   
   int number_of_features = relative_coords.size() * number_of_features_per_voxel_;
   
@@ -309,7 +309,7 @@ void SearchLight::cross_validate_permutations(permutated_validities_type  &permu
  *
  * @return array containing cross validities
  */
-sample_validity_array_type SearchLight::calculate(double radius) {
+sample_validity_array_type SearchLight::calculate(double radius, int leaveout) {
   cerr << "Calculating SearchLight" << endl;
   // Find relative coordinates of pixels within radius
   vector<coords_3d> relative_coords = radius_pixels(radius);
@@ -321,7 +321,7 @@ sample_validity_array_type SearchLight::calculate(double radius) {
   boost::progress_display show_progress(number_of_bands_ * number_of_rows_);
 
   // Walk through all voxels of the image data
-#pragma omp parallel for default(none) shared(validities,show_progress) firstprivate(relative_coords) schedule(dynamic)
+#pragma omp parallel for default(none) shared(validities,show_progress,std::cerr, leaveout) firstprivate(relative_coords) schedule(dynamic)
   for(int band = 0; band < number_of_bands_; band++) {
     for(int row(0); row < number_of_rows_; row++) {
 #pragma omp critical
@@ -330,7 +330,12 @@ sample_validity_array_type SearchLight::calculate(double radius) {
         // Check if this is an actual brain pixel
         if (!(is_voxel_zero(band,row,column))) {
           // Put stuff into feature fector, to SVM
-          validities[band][row][column] = cross_validate(band,row,column,relative_coords);
+          //struct timespec start,end;
+          //clock_gettime(CLOCK_MONOTONIC,&start);
+          validities[band][row][column] = cross_validate(band,row,column,relative_coords, leaveout);
+          //clock_gettime(CLOCK_MONOTONIC,&end);
+          //long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
+          //std::cerr << "Execution time: " << execution_time / 1e6 << "ms" << endl;
         } else {
           // validity is zero
           validities[band][row][column] = 0.0;
@@ -639,7 +644,7 @@ void SearchLight::PrintPermutations(int number_of_permutations,permutations_arra
  * 
  * @return  number of permutations 
  */
-int SearchLight::calculate_permutations(permutated_validities_type &permutated_validities,permutations_array_type &permutations, int number_of_permutations,double radius) {
+int SearchLight::calculate_permutations(permutated_validities_type &permutated_validities,permutations_array_type &permutations, int number_of_permutations,double radius, int leaveout) {
   cerr << "Calculating SearchLight Permutations" << endl;
   // Find relative coordinates of pixels within radius
   vector<coords_3d> relative_coords = radius_pixels(radius);
@@ -652,12 +657,12 @@ int SearchLight::calculate_permutations(permutated_validities_type &permutated_v
   
   number_of_permutations = generate_permutations(number_of_samples_,number_of_classes_,number_of_permutations,permutations);
   cerr << "New number of permutations: " << number_of_permutations << endl;
-  PrintPermutations(number_of_permutations,permutations);
+  //PrintPermutations(number_of_permutations,permutations);
  
   // Walk through all voxels of the image data
   boost::progress_display show_progress(number_of_bands_ * number_of_rows_ * number_of_columns_);
    
-#pragma omp parallel for default(none) shared(permutations,permutated_validities,number_of_permutations,show_progress,cerr) firstprivate(relative_coords) schedule(dynamic)
+#pragma omp parallel for default(none) shared(permutations,permutated_validities,number_of_permutations,show_progress,cerr,leaveout) firstprivate(relative_coords) schedule(dynamic)
   for(int band = 0; band < number_of_bands_; band++) {
    for(int row(0); row < number_of_rows_; row++) {
       for(int column(0); column < number_of_columns_; column++) {
@@ -666,7 +671,7 @@ int SearchLight::calculate_permutations(permutated_validities_type &permutated_v
           // Put stuff into feature fector, to SVM
           //struct timespec start,end;
           //clock_gettime(CLOCK_MONOTONIC,&start);
-          cross_validate_permutations(permutated_validities, number_of_permutations, permutations, band ,row,column,relative_coords);
+          cross_validate_permutations(permutated_validities, number_of_permutations, permutations, band ,row,column, relative_coords, leaveout);
           //clock_gettime(CLOCK_MONOTONIC,&end);
           //long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
           //cerr << "Execution time: " << execution_time / 1e9 << "s" << endl;

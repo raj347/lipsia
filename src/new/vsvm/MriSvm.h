@@ -15,6 +15,8 @@
 //#define BOOST_DISABLE_ASSERTS
 #include "boost/multi_array.hpp"
 
+#include <gsl/gsl_matrix_float.h>
+
 #define DEFAULT_MRISVM_SCALE_LOWER                -1
 #define DEFAULT_MRISVM_SCALE_UPPER                1
 
@@ -58,13 +60,15 @@ public:
   
   void    printConfiguration();
   void    scale();
+  void    normalize();
   float   cross_validate(int leaveout);
   float   cross_validate(int leaveout,struct svm_node *all_data);
 
   void    train_weights(boost::multi_array<float,1> &weights);
   void    train_weights(boost::multi_array<float,1> &weights, struct svm_node *data_base);
 
-  void    permutated_weights(boost::multi_array<float, 2> &weight_matrix, int number_of_permutations, permutations_array_type &permutations);
+  gsl_matrix_float* permutated_weights( int number_of_permutations, permutations_array_type &permutations);
+
   void    Permutate(permutated_validities_type &permutated_validities,
                        int number_of_permutations,
                        permutations_array_type &permutations,
@@ -79,6 +83,7 @@ public:
   void set_parameters(svm_parameter);
 
   static int generate_permutations(int n, int max_number_of_permutations, permutations_array_type &permutations);
+  static int generate_paired_permutations(int n, int max_number_of_permutations, permutations_array_type &permutations);
 
 private:
   void construct(sample_features_array_type  &sample_features);

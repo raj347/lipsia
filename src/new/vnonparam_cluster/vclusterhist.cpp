@@ -74,7 +74,6 @@ int main (int argc,char *argv[]) {
    * Parse command line parameters *
    *********************************/
   FILE *input_file;
-  FILE *out_file;
   
   VShort      nproc             = 4;
   VString     t_input_filename  = NULL;
@@ -86,7 +85,7 @@ int main (int argc,char *argv[]) {
     {"j",     VShortRepn,   1, &nproc,            VOptionalOpt, NULL, "number of processors to use, '0' to use all" }
   };
 
-  VParseFilterCmd( VNumber (program_options), program_options, argc, argv, &input_file, &out_file);
+  VParseFilterCmd( VNumber (program_options), program_options, argc, argv, &input_file, NULL);
 
 #ifdef _OPENMP
   // Take care of multiprocessing
@@ -147,7 +146,6 @@ int main (int argc,char *argv[]) {
   int number_of_columns = VImageNColumns(source_images.front());
 
   cerr << "Writing out." << endl;
-  VAttrList out_list = VCreateAttrList();
 
   /*
   BOOST_FOREACH(VImage old_image, source_images) {
@@ -188,19 +186,18 @@ int main (int argc,char *argv[]) {
         }
       }
     }
-    VAppendAttr(out_list,"image",NULL,VImageRepn, new_image);
-
     // Let's count clusters in this picture
     int number_of_labels;
     VFillImage(label_image,VAllBands,0);
-    label_image = VLabelImage3d(new_image, label_image, 26, VShortRepn, &number_of_labels);
+    //label_image = VLabelImage3d(new_image, label_image, 26, VShortRepn, &number_of_labels);
+    label_image = VLabelImage3d(new_image, label_image, 6, VShortRepn, &number_of_labels);
 
-    vector<double>  cluster_size(number_of_labels);
-    vector<int>     cluster_dimension(number_of_labels);
+    vector<double>  cluster_size(number_of_labels);       // [0..number_of_labels-1]
+    vector<int>     cluster_dimension(number_of_labels);  // [0..number_of_labels-1]
 
     for (int label = 0; label < number_of_labels; label++)  {
-      cluster_size[label] = 0.0;
-      cluster_dimension[label] = 0;
+      cluster_size[label]       = 0.0;
+      cluster_dimension[label]  = 0;
     }
 
     for(int band(0); band < number_of_bands; band++) {
@@ -260,8 +257,6 @@ int main (int argc,char *argv[]) {
   }
   fclose(hist_file);
 
-  VHistory(VNumber(program_options),program_options,argv[0],&attribute_list,&out_list);
-  VWriteFile(out_file, out_list);
   cerr << "Done." << endl;
 }
 
