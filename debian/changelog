@@ -38,27 +38,27 @@ lipsia (2.2.1g5bb10ar-1) stable; urgency=low
 
   * dependency to isis 0.4.5
 
- -- Lipsia Group (The official Lipsia developer group) <lipsia@cbs.mpg.de> Tue, 17 Jan 2012 16:07:00 +0100
+ -- Lipsia Group (The official Lipsia developer group) <lipsia@cbs.mpg.de>  Tue, 17 Jan 2012 16:07:00 +0100
 
 lipsia (2.2.1g5bb10ar-0) stable; urgency=low
 
   * dependency to isis 0.4.3
   * fixed bugs in itkAdapter
 
- -- Lipsia Group (The official Lipsia developer group) <lipsia@cbs.mpg.de> Tue, 10 Jan 2012 18:26:00 +0100
+ -- Lipsia Group (The official Lipsia developer group) <lipsia@cbs.mpg.de>  Tue, 10 Jan 2012 18:26:00 +0100
 
 lipsia (2.2.0g6b4158a-1) stable; urgency=low
 
   * dependency to isis 0.4.2
 
- -- Lipsia Group (The official Lipsia developer group) <lipsia@cbs.mpg.de> Mon, 19 Dec 2011 15:12:00 +0100
+ -- Lipsia Group (The official Lipsia developer group) <lipsia@cbs.mpg.de>  Mon, 19 Dec 2011 15:12:00 +0100
 
 lipsia (2.2.0g6b4158a-0) stable; urgency=low
 
   * new program vcompcor
   * improvement of vpreprocess
 
- -- Lipsia Group (The official Lipsia developer group) <lipsia@cbs.mpg.de> Mon, 28 Okt 2011 15:00:00 +0100
+ -- Lipsia Group (The official Lipsia developer group) <lipsia@cbs.mpg.de>  Mon, 28 Okt 2011 15:00:00 +0100
 
 lipsia (2.1.3svn255-0) stable; urgency=low
 
