@@ -45,7 +45,7 @@ using std::pair;
 
 #define EPSILON 1e-8
 
-extern VImage VLabelImage3d(VImage, VImage, int, VRepnKind, int *);
+extern "C" VImage VLabelImage3d(VImage, VImage, int, VRepnKind, int *);
 extern "C" void getLipsiaVersion(char*,size_t);
 
 #ifdef _OPENMP

@@ -42,7 +42,7 @@ using std::cout;
 using std::endl;
 using std::vector;
 
-extern VImage VLabelImage3d(VImage, VImage, int, VRepnKind, int *);
+extern "C" VImage VLabelImage3d(VImage, VImage, int, VRepnKind, int *);
 extern "C" void getLipsiaVersion(char*,size_t);
 
 #ifdef _OPENMP
