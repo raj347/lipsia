@@ -1,0 +1,13 @@
+PROJECT(vmerge)
+
+ADD_EXECUTABLE(vmerge vmerge.cpp)
+
+TARGET_LINK_LIBRARIES(vmerge ${VIAIO_LIBRARY}  ${LIPSIA_LIBRARY}
+    ${GSL_GSL_LIBRARY} ${GSL_CBLAS_LIBRARY})
+
+SET_TARGET_PROPERTIES(vmerge PROPERTIES
+                      LINK_FLAGS -Wl)
+
+INSTALL(TARGETS vmerge 
+        RUNTIME DESTINATION bin
+        COMPONENT RuntimeLibraries)

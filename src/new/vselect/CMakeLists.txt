@@ -1,0 +1,13 @@
+PROJECT(vselect)
+
+ADD_EXECUTABLE(vselect vselect.cpp)
+
+TARGET_LINK_LIBRARIES(vselect ${VIAIO_LIBRARY}  ${LIPSIA_LIBRARY}
+    ${GSL_GSL_LIBRARY} ${GSL_CBLAS_LIBRARY})
+
+SET_TARGET_PROPERTIES(vselect PROPERTIES
+                      LINK_FLAGS -Wl)
+
+INSTALL(TARGETS vselect 
+        RUNTIME DESTINATION bin
+        COMPONENT RuntimeLibraries)
