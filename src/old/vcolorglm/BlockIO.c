@@ -100,6 +100,6 @@ GetListInfo(VString in_filename, ListInfo *linfo) {
     linfo->nslices  = id;
     linfo->itr      = itr;
     linfo->repn     = repn;
-    linfo->filename = VNewString(in_filename);
+    linfo->filename = VNewString(in_filename); 
     return list;
 }
