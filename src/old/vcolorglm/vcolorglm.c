@@ -229,6 +229,15 @@ VRegression(ListInfo *linfo, int nlists, VShort minval, VImage design, VFloat si
     VSetAttr(VImageAttrList(res_image), "voxel", NULL, VStringRepn, xinfo->voxel);
     VSetAttr(VImageAttrList(res_image), "repetition_time", NULL, VLongRepn, itr);
     VSetAttr(VImageAttrList(res_image), "talairach", NULL, VStringRepn, xinfo->talairach);
+
+    /* neu */
+    VSetAttr(VImageAttrList(res_image),"indexOrigin",NULL,VStringRepn,xinfo->indexOrigin);
+    VSetAttr(VImageAttrList(res_image),"columnVec",NULL,VStringRepn,xinfo->columnVec);
+    VSetAttr(VImageAttrList(res_image),"rowVec",NULL,VStringRepn,xinfo->rowVec);
+    VSetAttr(VImageAttrList(res_image),"sliceVec",NULL,VStringRepn,xinfo->sliceVec);
+    VSetAttr(VImageAttrList(res_image),"FOV",NULL,VStringRepn,xinfo->FOV);
+    /*--------*/
+
     if(xinfo->fixpoint[0] != 'N')
         VSetAttr(VImageAttrList(res_image), "fixpoint", NULL, VStringRepn, xinfo->fixpoint);
     if(xinfo->ca[0] != 'N') {
@@ -244,6 +253,16 @@ VRegression(ListInfo *linfo, int nlists, VShort minval, VImage design, VFloat si
         VSetAttr(VImageAttrList(beta_image[i]), "voxel", NULL, VStringRepn, xinfo->voxel);
         VSetAttr(VImageAttrList(beta_image[i]), "repetition_time", NULL, VLongRepn, itr);
         VSetAttr(VImageAttrList(beta_image[i]), "talairach", NULL, VStringRepn, xinfo->talairach);
+
+	/* neu */
+	VSetAttr(VImageAttrList(beta_image[i]),"indexOrigin",NULL,VStringRepn,xinfo->indexOrigin);
+	VSetAttr(VImageAttrList(beta_image[i]),"columnVec",NULL,VStringRepn,xinfo->columnVec);
+	VSetAttr(VImageAttrList(beta_image[i]),"rowVec",NULL,VStringRepn,xinfo->rowVec);
+	VSetAttr(VImageAttrList(beta_image[i]),"sliceVec",NULL,VStringRepn,xinfo->sliceVec);
+	VSetAttr(VImageAttrList(beta_image[i]),"FOV",NULL,VStringRepn,xinfo->FOV);
+	/*--------*/
+
+
         if(xinfo->fixpoint[0] != 'N')
             VSetAttr(VImageAttrList(beta_image[i]), "fixpoint", NULL, VStringRepn, xinfo->fixpoint);
         if(xinfo->ca[0] != 'N') {
@@ -512,10 +531,13 @@ main(int argc, char *argv[]) {
             VPrependHistory(VNumber(options), options, prg_name, &history_list);
         }
     }
+
     /*
     ** GLM
     */
     out_list = VRegression(linfo, nimages, minval, design, sigma, itr);
+
+
     /*
     **  Output:
     */
