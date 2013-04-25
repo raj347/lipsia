@@ -1,3 +1,10 @@
+lipsia (2.2.9-1) stable; urgency=low
+
+  * fix segfault in vmaskedit
+  * minor cmake cleanup
+
+ -- Enrico Reimer <reimer@cbs.mpg.de>  Thu, 25 Apr 2013 18:45:42 +0200
+
 lipsia (2.2.8-1) stable; urgency=low
 
   * vconvertR vnonparam_cluster vsvm and vycorr added
