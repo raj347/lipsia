@@ -33,6 +33,27 @@ Description: analysis suite for MRI and fMRI data
 
 
 
+Package: lipsia-qt3
+Section: science
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, python-qt4
+Recommends: via-utils, lipsia-doc, vast (>= 0.2.6), libisis-ioplugins-common, libisis-ioplugins-dicom
+Description: analysis suite for MRI and fMRI data
+ Leipzig Image Processing and Statistical Inference Algorithms (LIPSIA)
+ .
+ This is a software package for the data processing and evaluation of
+ functional magnetic resonance images. The analysis of fMRI data comprises
+ various aspects including filtering, spatial transformation, statistical
+ evaluation as well as segmentation and visualization. All these aspects are
+ covered by LIPSIA. For the statistical evaluation, a number of well established
+ and peer-reviewed algorithms were implemented in LIPSIA that allow an effcient
+ and user-friendly processing of fMRI data sets. As the amount of data that must
+ be handled is enormous, an important aspect in the development LIPSIA was the
+ efficiency of the software implementation.
+ .
+ This package provides some obsolete tools which depend on Qt3. 
+ 
+ 
 Package: lipsia-dev
 Section: libdevel
 Architecture: any
