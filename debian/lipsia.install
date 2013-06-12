@@ -82,7 +82,6 @@ debian/tmp/usr/bin/vROIonesample_ttest usr/bin
 debian/tmp/usr/bin/vROIpaired_ttest usr/bin
 debian/tmp/usr/bin/vROIpaired_wilcoxtest usr/bin
 debian/tmp/usr/bin/vROItwosample_ttest usr/bin
-debian/tmp/usr/bin/vselect usr/bin
 debian/tmp/usr/bin/vseltimesteps usr/bin
 debian/tmp/usr/bin/vshowpts usr/bin
 debian/tmp/usr/bin/vsimmat usr/bin

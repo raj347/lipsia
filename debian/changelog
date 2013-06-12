@@ -1,3 +1,10 @@
+lipsia (2.2.9-2) UNRELEASED; urgency=low
+
+  * remove vselect (it's already in via)
+  * add package for qt3 stuff
+
+ -- Enrico Reimer <reimer@cbs.mpg.de>  Wed, 05 Jun 2013 23:17:25 +0000
+
 lipsia (2.2.9-1) stable; urgency=low
 
   * fix segfault in vmaskedit

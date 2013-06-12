@@ -8,8 +8,6 @@ debian/tmp/usr/bin/vqview usr/bin
 debian/tmp/usr/bin/vsendserv usr/bin
 debian/tmp/usr/bin/vsview usr/bin
 
-debian/tmp/usr/share/lipsia/* usr/share/lipsia
-
 debian/tmp/usr/lib/lipsia/libvlh.a usr/lib/lipsia
 debian/tmp/usr/lib/lipsia/libvlh.so usr/lib/lipsia
 debian/tmp/usr/lib/lipsia/libvlh.so.2.2.8 usr/lib/lipsia
