@@ -35,7 +35,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-#include <via.h>
+#include <via/via.h>
 
 extern VGraph VSulci(VImage, VFloat, VBoolean);
 extern VImage VCleanImage(VImage, VImage, VImage, int);

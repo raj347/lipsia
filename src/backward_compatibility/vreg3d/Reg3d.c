@@ -16,7 +16,7 @@
 /* From the Vista library: */
 #include <viaio/Vlib.h>
 #include <viaio/mu.h>
-#include <via.h>
+#include <via/via.h>
 
 extern VImage VGetTrans(VImage, VImage, int, int, float, float, float, float [3], float, float, VShort, VShort);
 extern VImage IniShift(VImage, VImage, int, float [], int, int);

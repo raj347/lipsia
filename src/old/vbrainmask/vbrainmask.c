@@ -34,7 +34,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <via.h>
+#include <via/via.h>
 
 extern void getLipsiaVersion(char*,size_t);
 
