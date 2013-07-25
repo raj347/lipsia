@@ -32,7 +32,7 @@
 #include "viaio/option.h"
 #include "viaio/os.h"
 #include <viaio/VImage.h>
-#include <via.h>
+#include <via/via.h>
 
 #include <gsl/gsl_cdf.h>
 #include <gsl/gsl_errno.h>

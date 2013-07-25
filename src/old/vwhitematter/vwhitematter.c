@@ -38,7 +38,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-#include <via.h>
+#include <via/via.h>
 
 
 #define ABS(x) ((x) < 0 ? -(x) : (x))

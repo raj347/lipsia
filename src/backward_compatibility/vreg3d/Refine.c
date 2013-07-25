@@ -7,7 +7,7 @@
 /* From the Vista library: */
 #include <viaio/Vlib.h>
 #include <viaio/mu.h>
-#include <via.h>
+#include <via/via.h>
 
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_cblas.h>

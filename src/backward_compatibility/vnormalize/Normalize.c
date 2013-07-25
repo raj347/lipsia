@@ -17,7 +17,7 @@
 #include <viaio/Vlib.h>
 #include <viaio/mu.h>
 #include <viaio/os.h>
-#include <via.h>
+#include <via/via.h>
 
 #include <stdio.h>
 #include <math.h>

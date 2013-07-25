@@ -43,7 +43,7 @@ Gabriele Lohmann, MPI-CBS
  *
  *****************************************************************/
 
-#include <via.h>
+#include <via/via.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>

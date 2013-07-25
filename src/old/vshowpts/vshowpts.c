@@ -30,7 +30,7 @@
 #include <viaio/file.h>
 #include <viaio/mu.h>
 #include <viaio/option.h>
-#include <via.h>
+#include <via/via.h>
 
 #include <stdio.h>
 #include <stdlib.h>

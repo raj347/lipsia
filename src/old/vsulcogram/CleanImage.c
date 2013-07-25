@@ -10,7 +10,7 @@
 #include <viaio/Vlib.h>
 #include <viaio/file.h>
 #include <viaio/mu.h>
-#include <via.h>
+#include <via/via.h>
 
 int
 FinalPoint(VImage src, int b, int r, int c) {
