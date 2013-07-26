@@ -45,7 +45,7 @@
 #include "DataStorage/io_factory.hpp"
 #include "DataStorage/image.hpp"
 #include "CoreUtils/application.hpp"
-#include <Adapter/itkAdapter.hpp>
+#include "../../include/itkAdapter.hpp"
 
 #include "isisTimeStepExtractionFilter.hpp"
 #include "isisTransformMerger3D.hpp"
@@ -439,7 +439,7 @@ int main(int argc, char *argv[] )
                     std::vector< std::string > cpTuple;
                     std::string ca = tmpList.front().getPropertyAs<std::string>( "Vista/ca" );
                     std::string cp = tmpList.front().getPropertyAs<std::string>( "Vista/cp" );
-                    isis::util::fvector4 oldVoxelSize = tmpList.front().getPropertyAs<isis::util::fvector4>( "voxelSize" );
+                    isis::util::fvector3 oldVoxelSize = tmpList.front().getPropertyAs<isis::util::fvector3>( "voxelSize" );
                     boost::algorithm::split( caTuple, ca, boost::algorithm::is_any_of( " " ) );
                     boost::algorithm::split( cpTuple, cp, boost::algorithm::is_any_of( " " ) );
 
@@ -576,7 +576,7 @@ int main(int argc, char *argv[] )
                 std::vector< std::string > cpTuple;
                 std::string ca = tmpList.front().getPropertyAs<std::string>( "Vista/ca" );
                 std::string cp = tmpList.front().getPropertyAs<std::string>( "Vista/cp" );
-                isis::util::fvector4 oldVoxelSize = tmpList.front().getPropertyAs<isis::util::fvector4>( "voxelSize" );
+                isis::util::fvector3 oldVoxelSize = tmpList.front().getPropertyAs<isis::util::fvector3>( "voxelSize" );
                 boost::algorithm::split( caTuple, ca, boost::algorithm::is_any_of( " " ) );
                 boost::algorithm::split( cpTuple, cp, boost::algorithm::is_any_of( " " ) );
 

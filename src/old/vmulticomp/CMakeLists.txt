@@ -5,8 +5,7 @@ ADD_EXECUTABLE(vmulticomp
 TARGET_LINK_LIBRARIES(vmulticomp lipsia ${VIA_LIBRARY})
 
 SET_TARGET_PROPERTIES(vmulticomp PROPERTIES
-                      COMPILE_FLAGS -ansi
-                      LINK_FLAGS -Wl)
+                      COMPILE_FLAGS -ansi)
 
 INSTALL(TARGETS vmulticomp
         RUNTIME DESTINATION bin

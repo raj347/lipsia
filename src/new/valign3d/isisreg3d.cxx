@@ -60,7 +60,7 @@
 #include "DataStorage/io_factory.hpp"
 #include "DataStorage/image.hpp"
 #include "CoreUtils/application.hpp"
-#include <Adapter/itkAdapter.hpp>
+#include "../../include/itkAdapter.hpp"
 
 #include "isisRegistrationFactory3D.hpp"
 #include "isisIterationObserver.hpp"

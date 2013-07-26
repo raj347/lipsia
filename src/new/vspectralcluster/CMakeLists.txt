@@ -11,8 +11,6 @@ MESSAGE(STATUS "f2c: ${F2C_LIBRARY}")
 ADD_EXECUTABLE(vspectralcluster Eigen.c KMeans.c LaplacianMatrix.c vspectralcluster.c)
 TARGET_LINK_LIBRARIES(vspectralcluster lipsia ${LAPACK_LIBRARY} ${VIAIO_LIBRARY} ${GSL_CBLAS_LIBRARY} ${GSL_GSL_LIBRARY} ${LIPSIA_LIBRARY} )
 
-SET_TARGET_PROPERTIES(vspectralcluster PROPERTIES
-                      LINK_FLAGS -Wl)
 
 INSTALL(TARGETS vspectralcluster
         RUNTIME DESTINATION bin

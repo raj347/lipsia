@@ -40,7 +40,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <via.h>
+#include <via/via.h>
 
 #define ABS(x) ((x) > 0 ? (x) : -(x))
 #define SQR(x) ((x)*(x))

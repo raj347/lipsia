@@ -30,7 +30,7 @@
 #include <viaio/file.h>
 #include <viaio/mu.h>
 #include <viaio/option.h>
-#include <via.h>
+#include <via/via.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -172,7 +172,7 @@ VDictEntry TALDict[] = {
 int main(int argc, char *argv[]) {
     static VFloat  reso     = 1.0;
     static VShort  system   = 1;
-    static VString filename = "";
+    static VString filename = 0;
     static VShort  nslices  = 0;
     static VShort  nrows    = 0;
     static VShort  ncols    = 0;
@@ -190,7 +190,7 @@ int main(int argc, char *argv[]) {
         {"nrows", VShortRepn, 1, &nrows, VOptionalOpt, NULL, "number of rows in output image"},
         {"ncolumns", VShortRepn, 1, &ncols, VOptionalOpt, NULL, "number of columns in output image"}
     };
-    FILE *out_file;
+    FILE *out_file=0;
     VAttrList out_list;
     VImage dest = NULL;
     char prg_name[100];
@@ -213,6 +213,5 @@ int main(int argc, char *argv[]) {
     VAppendAttr(out_list, "image", NULL, VImageRepn, dest);
     if(! VWriteFile(out_file, out_list))
         VError("can't write output file");
-    fprintf(stderr, "%s: done.\n", argv[0]);
     return (EXIT_SUCCESS);
 }

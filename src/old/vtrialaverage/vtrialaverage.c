@@ -42,7 +42,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
-#include <via.h>
+#include <via/via.h>
 
 extern void VGetVoxelCoord(VImage, float, float, float, float *, float *, float *);
 extern void getLipsiaVersion(char*,size_t);

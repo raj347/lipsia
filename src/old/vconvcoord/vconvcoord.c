@@ -32,7 +32,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <via.h>
+#include <via/via.h>
 
 VDictEntry ConvDict[] = {
     { "vox2tal", 0 },

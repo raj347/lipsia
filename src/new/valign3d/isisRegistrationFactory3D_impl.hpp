@@ -235,14 +235,14 @@ void RegistrationFactory3D<TFixedImageType, TMovingImageType>::SetOptimizer(
 template<class TFixedImageType, class TMovingImageType>
 void RegistrationFactory3D<TFixedImageType, TMovingImageType>::UpdateParameters()
 {
-	
+
 	//transform parameters:
 	this->SetUpTransform();
 	//optimizer parameters:
 	this->SetUpOptimizer();
 	//metric parameters;
 	this->SetUpMetric();
-	
+
 }
 
 template<class TFixedImageType, class TMovingImageType>
@@ -259,21 +259,25 @@ void RegistrationFactory3D<TFixedImageType, TMovingImageType>::SetUpOptimizer()
 				//rotation
 				if ( UserOptions.ROTATIONSCALE == -1 ) {
 					UserOptions.ROTATIONSCALE = 1.0 / 1.0;
-				
+
 				}
+
 				optimizerScaleRegularStepGradient[0] = UserOptions.ROTATIONSCALE;
 				optimizerScaleRegularStepGradient[1] = UserOptions.ROTATIONSCALE;
 				optimizerScaleRegularStepGradient[2] = UserOptions.ROTATIONSCALE;
+
 				//translation
 				if ( UserOptions.TRANSLATIONSCALE == -1 ) {
 					typename FixedImageType::SizeType imageSize = m_FixedImageRegion.GetSize();
-					UserOptions.TRANSLATIONSCALE = 
+					UserOptions.TRANSLATIONSCALE =
 						( sqrt( imageSize[0] * imageSize[0] + imageSize[1] * imageSize[1] + imageSize[2] * imageSize[2] ) );
-				} 
+				}
+
 				optimizerScaleRegularStepGradient[3] = 1.0 / UserOptions.TRANSLATIONSCALE;
 				optimizerScaleRegularStepGradient[4] = 1.0 / UserOptions.TRANSLATIONSCALE;
 				optimizerScaleRegularStepGradient[5] = 1.0 / UserOptions.TRANSLATIONSCALE;
 			}
+
 			if ( transform.RIGID3D ) {
 				for ( unsigned short i = 0; i < 9; i++ ) {
 					optimizerScaleRegularStepGradient[i] = 1.0;
@@ -288,11 +292,11 @@ void RegistrationFactory3D<TFixedImageType, TMovingImageType>::SetUpOptimizer()
 				optimizerScaleRegularStepGradient.Fill( 1.0 );
 			}
 
- 			if ( transform.AFFINE ) {
- 				optimizerScaleRegularStepGradient[9] = 1.0 / UserOptions.TRANSLATIONSCALE;
- 				optimizerScaleRegularStepGradient[10] = 1.0 / UserOptions.TRANSLATIONSCALE;
- 				optimizerScaleRegularStepGradient[11] = 1.0 / UserOptions.TRANSLATIONSCALE;
- 			}
+			if ( transform.AFFINE ) {
+				optimizerScaleRegularStepGradient[9] = 1.0 / UserOptions.TRANSLATIONSCALE;
+				optimizerScaleRegularStepGradient[10] = 1.0 / UserOptions.TRANSLATIONSCALE;
+				optimizerScaleRegularStepGradient[11] = 1.0 / UserOptions.TRANSLATIONSCALE;
+			}
 
 			m_RegularStepGradientDescentOptimizer->SetMaximumStepLength( 0.1 * UserOptions.CoarseFactor );
 			m_RegularStepGradientDescentOptimizer->SetMinimumStepLength( 0.0001 * UserOptions.CoarseFactor );
@@ -386,7 +390,7 @@ template<class TFixedImageType, class TMovingImageType>
 void RegistrationFactory3D <
 TFixedImageType, TMovingImageType >::prealign()
 {
-	m_MattesMutualInformationMetric->SetNumberOfThreads( UserOptions.NumberOfThreads );	
+	m_MattesMutualInformationMetric->SetNumberOfThreads( UserOptions.NumberOfThreads );
 	m_VersorRigid3DTransform = VersorRigid3DTransformType::New();
 	m_RigidInitializer = RigidCenteredTransformInitializerType::New();
 	m_RigidInitializer->SetTransform( m_VersorRigid3DTransform );
@@ -394,8 +398,9 @@ TFixedImageType, TMovingImageType >::prealign()
 	m_RigidInitializer->SetMovingImage( m_MovingImage );
 	m_RigidInitializer->GeometryOn();
 	m_RigidInitializer->InitializeTransform();
-	if(!metric.MATTESMUTUALINFORMATION) {
-		 m_MattesMutualInformationMetric = MattesMutualInformationMetricType::New();
+
+	if( !metric.MATTESMUTUALINFORMATION ) {
+		m_MattesMutualInformationMetric = MattesMutualInformationMetricType::New();
 	}
 
 	m_MattesMutualInformationMetric->SetMovingImage( m_MovingImage );
@@ -403,8 +408,8 @@ TFixedImageType, TMovingImageType >::prealign()
 	m_MattesMutualInformationMetric->SetFixedImageRegion( m_FixedImageRegion );
 	m_MattesMutualInformationMetric->SetTransform( m_VersorRigid3DTransform );
 	m_MattesMutualInformationMetric->SetNumberOfSpatialSamples( m_FixedImageRegion.GetNumberOfPixels()
-				* UserOptions.PixelDensity / 2 );
-	m_MattesMutualInformationMetric->SetNumberOfHistogramBins( UserOptions.NumberOfBins / 2);
+			* UserOptions.PixelDensity / 2 );
+	m_MattesMutualInformationMetric->SetNumberOfHistogramBins( UserOptions.NumberOfBins / 2 );
 	m_MattesMutualInformationMetric->SetInterpolator( m_LinearInterpolator );
 	typename VersorRigid3DTransformType::ParametersType params = m_VersorRigid3DTransform->GetParameters();
 	typename VersorRigid3DTransformType::ParametersType searchParams = m_VersorRigid3DTransform->GetParameters();
@@ -417,18 +422,20 @@ TFixedImageType, TMovingImageType >::prealign()
 	float minMaxX = ratio * movingImageSize[0] * movingImageSpacing[0];
 	float minMaxY = ratio * movingImageSize[1] * movingImageSpacing[1];
 	float minMaxZ = ratio * movingImageSize[2] * movingImageSpacing[2];
-	float stepSizeX = minMaxX / (float)prec;
-	float stepSizeY = minMaxY / (float)prec;
-	float stepSizeZ = minMaxZ / (float)prec;
+	float stepSizeX = minMaxX / ( float )prec;
+	float stepSizeY = minMaxY / ( float )prec;
+	float stepSizeZ = minMaxZ / ( float )prec;
 	double value = 0;
 	double metricValue = 0;
-	for (float x = -minMaxX;x<=minMaxX;x+=stepSizeX) {
-		for (float y = -minMaxY;y<=minMaxY;y+=stepSizeY) {
-			for (float z = -minMaxZ;z<=minMaxZ;z+=stepSizeZ) {
+
+	for ( float x = -minMaxX; x <= minMaxX; x += stepSizeX ) {
+		for ( float y = -minMaxY; y <= minMaxY; y += stepSizeY ) {
+			for ( float z = -minMaxZ; z <= minMaxZ; z += stepSizeZ ) {
 				searchParams[3] = params[3] +  x;
 				searchParams[4] = params[4] +  y;
 				searchParams[5] = params[5] +  z;
 				metricValue = static_cast<double>( m_MattesMutualInformationMetric->GetValue(  searchParams ) );
+
 				if ( value >  metricValue ) {
 					value = metricValue;
 					newParams = searchParams;
@@ -436,17 +443,18 @@ TFixedImageType, TMovingImageType >::prealign()
 			}
 		}
 	}
+
 	m_VersorRigid3DTransform->SetParameters( newParams );
 }
 
 template<class TFixedImageType, class TMovingImageType>
 void RegistrationFactory3D<TFixedImageType, TMovingImageType>::SetUpTransform()
 {
-	if ( UserOptions.PREALIGN ) 
-	{
+	if ( UserOptions.PREALIGN ) {
 		std::cout << "Prealigning..." << std::endl;
 		prealign();
 	}
+
 	//initialize transform
 	if ( !UserOptions.INITIALIZEMASSOFF or !UserOptions.INITIALIZECENTEROFF ) {
 		if ( transform.TRANSLATION ) {
@@ -678,6 +686,7 @@ TFixedImageType, TMovingImageType >::GetTransformVectorField(
 	typename itk::Transform<double, FixedImageDimension, MovingImageDimension>::OutputPointType movingPoint;
 	typename DeformationFieldType::IndexType index;
 	VectorType displacement;
+
 	while ( !fi.IsAtEnd() ) {
 		index = fi.GetIndex();
 		m_DeformationField->TransformIndexToPhysicalPoint( index, fixedPoint );
@@ -835,8 +844,8 @@ void RegistrationFactory3D<TFixedImageType, TMovingImageType>::StartRegistration
 	m_observer = isis::extitk::IterationObserver::New();
 	m_observer->setVerboseStep( UserOptions.SHOWITERATIONATSTEP );
 	m_RegistrationObject->GetOptimizer()->AddObserver( itk::IterationEvent(), m_observer );
-	m_RegistrationObject->SetNumberOfThreads(UserOptions.NumberOfThreads);
-	
+	m_RegistrationObject->SetNumberOfThreads( UserOptions.NumberOfThreads );
+
 	try {
 		m_RegistrationObject->StartRegistration();
 	} catch ( itk::ExceptionObject &err ) {

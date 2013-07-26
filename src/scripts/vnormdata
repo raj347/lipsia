@@ -44,24 +44,24 @@ if __name__ == '__main__':
     ref_ana = "/usr/share/lipsia/mni.v"
     ref_func = "/usr/share/lipsia/epi_template_3mm.v"
 
-    app = core.Application("vnormdata")
-    app.addParameter("out","","string")
+    app = util.Application("vnormdata")
+    app.addParameter("out","")
     app.setDescription("out","The output image")
     app.setNeeded("out", True)
-    app.addParameter("func","","string")
+    app.addParameter("func","")
     app.setDescription("func", "The functional image")
-    app.addParameter("ana","","string")
+    app.addParameter("ana","")
     app.setDescription("ana","The anatomical image")
-    app.addParameter("ref","/usr/share/lipsia/mni.v","string")
+    app.addParameter("ref","/usr/share/lipsia/mni.v")
     app.setDescription("ref", "The reference image.")
-    app.init(len(sys.argv),sys.argv, True)
+    app.init(sys.argv, True)
 
     checkFile(reg_prg)
     checkFile(rsmpl_prg)
-    image_ana = app.getParameterAsString("ana")
-    image_func = app.getParameterAsString("func")
-    image_ref = app.getParameterAsString("ref")
-    image_out = app.getParameterAsString("out")
+    image_ana = app.getParameter("ana")
+    image_func = app.getParameter("func")
+    image_ref = app.getParameter("ref")
+    image_out = app.getParameter("out")
 
     checkFile(image_ref)
 

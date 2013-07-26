@@ -8,8 +8,6 @@ ADD_EXECUTABLE(vlserv
                dock.C vlserv.C ${VLSERV_MOC})
 TARGET_LINK_LIBRARIES(vlserv ${QT_LIBRARIES} lipsia ${VIA_LIBRARY})
 
-SET_TARGET_PROPERTIES(vlserv PROPERTIES
-                      LINK_FLAGS -Wl)
 
 INSTALL(TARGETS vlserv
         RUNTIME DESTINATION bin

@@ -12,9 +12,9 @@
 #ifndef CVIMAGE_H
 #define CVIMAGE_H
 
-#include <Vlib.h>
-#include <VImage.h>
-#include <mu.h>
+#include <viaio/Vlib.h>
+#include <viaio/VImage.h>
+#include <viaio/mu.h>
 
 #include <algorithm>
 #include <map>

@@ -5,7 +5,7 @@
 #include <math.h>
 
 extern "C" {
-#include <via.h>
+#include <via/via.h>
 }
 #define DEBUGING 0
 #define NP -32768
@@ -146,7 +146,7 @@ void VImageManager::prepareScaleValue()
 		int npixels = nbands * nrows * ncols;
 		int smin = ( int )VRepnMinValue( VShortRepn );
 		int smax = ( int )VRepnMaxValue( VShortRepn );
-		int i = 0, j = 0;
+		int j = 0;
 		int dim = 2 * smax + 1;
 
 		float *histo = new float[dim];

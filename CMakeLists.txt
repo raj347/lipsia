@@ -28,7 +28,7 @@ ENDIF(LIPSIA_INCLUDE_ROOT)
 IF(APPLE)
 	set(LIB_INSTALL_PATH lib)
 else(APPLE)
-	set(LIB_INSTALL_PATH lib)
+	set(LIB_INSTALL_PATH lib/lipsia)
 endif(APPLE)
 
 # the name of the Lipsia library
@@ -37,7 +37,7 @@ SET(LIPSIA_LIBRARY "lipsia")
 # set the lipsia version
 SET(LIPSIA_VERSION_MAJOR "2")
 SET(LIPSIA_VERSION_MINOR "2")
-SET(LIPSIA_VERSION_PATCH "1")
+SET(LIPSIA_VERSION_PATCH "8")
 
 ADD_DEFINITIONS(-D_LIPSIA_VERSION_MAJOR=${LIPSIA_VERSION_MAJOR})
 ADD_DEFINITIONS(-D_LIPSIA_VERSION_MINOR=${${CMAKE_PROJECT_NAME}_VERSION_MINOR})
@@ -144,11 +144,9 @@ INCLUDE_DIRECTORIES(
   ${ISIS_INCLUDE_DIR}
   ${Boost_INCLUDE_DIR}
   ${NIFTI_INCLUDE_DIR}
-	)
+)
 
-#SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -msse2  -fopenmp -O3  ")
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -msse2  -fopenmp ")
-#SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -fPIC -Wno-deprecated -msse2  -ftemplate-depth-100 -fopenmp -O3 ")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -fPIC -Wno-deprecated -msse2  -ftemplate-depth-100 -fopenmp")
 
 INSTALL(DIRECTORY doc/html
@@ -159,7 +157,7 @@ INSTALL(DIRECTORY doc/html
 
 #installing the scripts
 install(PROGRAMS src/scripts/vcreatemask DESTINATION bin)
-#install(PROGRAMS src/scripts/vnormdata DESTINATION bin)
+install(PROGRAMS src/scripts/vnormdata DESTINATION bin)
 #install(PROGRAMS src/scripts/vpreproc_gui DESTINATION bin)
 
 #############################################################
