@@ -194,6 +194,7 @@ int main (int argc,char *argv[]) {
   
   VHistory(VNumber(program_options),program_options,argv[0],&attribute_list,&out_list);
   VWriteFile(out_file, out_list);
+  fclose(out_file);
   cerr << "Done." << endl;
 
 }

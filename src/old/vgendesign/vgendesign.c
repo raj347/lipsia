@@ -626,9 +626,11 @@ main(int argc, char *argv[]) {
         }
         if(trialcount < 1)
             VError(" no trials in event %d, please re-number event-ids", i + 1);
+        /*
         if(trialcount < 4)
             VWarning(" too few trials (%d) in event %d. Statistics will be unreliable.",
                      trialcount, i + 1);
+        */
         /*  fft */
         fftw_execute(p1);
         if(block)

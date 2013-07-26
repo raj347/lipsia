@@ -4,25 +4,23 @@
  * SVM - Support Vector Machine
  * 
  * Usage:
- *  vsvm -in1 class1samples.v -in2 class2samples.v -out svm.v [-scale] [-pca] [-saveperm] [-nperm number of permutations] [-j nprocs] [svm options] [-permfile permutations.v]
+ *  vsvm -in1 class1samples.v -in2 class2samples.v -out svm.v [-scale <true|false>] [-pca <true|false>] [-nperm number of permutations] [-j nprocs] [svm options] [-permfile <permutations.v>]
  *
  *  options:
  *    -in1 class1samples.v
  *      Input files (class 1)
  *    -in2 class2samples.v
  *      Input files (class 2)
- *    -scale
- *      Whether to scale data
+ *    -scale <true|false>
+ *      Whether to scale data (default: true)
  *    -pca
- *      Wheter to process data with a principal component analysis
- *    -saveperm
- *      Whether to save permutations to output file
+ *      Wheter to process data with a principal component analysis (default: false)
  *    -nperm
  *      Number of permutations (default: 0)
  *    -j nprocs
  *      number of processors to use, '0' to use all
  *    -permfile permutations.v
- *      store permutations in permutations.v instead of svm.v (requires -saveperm to have an effect)
+ *      store permutations in permutations.v
  *
  *  svm options:
  *    -svm_cache_size cache_size
@@ -124,9 +122,8 @@ int main (int argc,char *argv[]) {
   // Parse command line parameters
   VArgVector  input_filenames1,input_filenames2;
   VString     perm_filename = NULL;
-  VBoolean    do_scale      = false;
+  VBoolean    do_scale      = true;
   VBoolean    do_pca        = false;
-  VBoolean    save_perms    = false;
   VBoolean    paired        = false;
   VShort      nproc         = 4;
   VLong       nperm         = 0;
@@ -142,7 +139,6 @@ int main (int argc,char *argv[]) {
     {"in2",           VStringRepn,  0, &input_filenames2, VRequiredOpt, NULL, "Input files (class 2)" },
     {"scale",         VBooleanRepn, 1, &do_scale,         VOptionalOpt, NULL, "Whether to scale data"},
     {"pca",           VBooleanRepn, 1, &do_pca,           VOptionalOpt, NULL, "Whether to do a pca before the svm"},
-    {"saveperm",      VBooleanRepn, 1, &save_perms,       VOptionalOpt, NULL, "Whether to store permutations" },
     {"permfile",      VStringRepn,  1, &perm_filename,    VOptionalOpt, NULL, "File to store permutations (if extra file)" },
     {"j",             VShortRepn,   1, &nproc,            VOptionalOpt, NULL, "number of processors to use, '0' to use all" },
     {"nperm",         VLongRepn,    1, &nperm,            VOptionalOpt, NULL, "number of permutations to generate (default: 0)" },
@@ -153,8 +149,10 @@ int main (int argc,char *argv[]) {
   };
   VParseFilterCmd(VNumber (program_options),program_options,argc,argv,NULL,&out_file);
 
+  VBoolean    save_perms    = false;
   if (perm_filename != NULL) {
     cerr << "Filename: " << perm_filename << endl;
+    save_perms = true;
   }
   
   bool  do_permutations = (nperm > 0);
@@ -373,10 +371,7 @@ int main (int argc,char *argv[]) {
 
   // Scale features
   if (do_scale) {
-    cerr << "SKALIERE!" << endl;
     mrisvm.scale();
-  } else {
-    cerr << "Skaliere nicht." << endl;
   }
 
   // Get weights
@@ -527,22 +522,15 @@ int main (int argc,char *argv[]) {
 
       VSetAttr(VImageAttrList(permutation_dest),"permutation",NULL,VStringRepn,permutation_text.str().c_str());
       VSetAttr(VImageAttrList(permutation_dest),"name",NULL,VStringRepn,"SVM Permutation");
+      VAppendAttr(perm_out_list,"image",NULL,VImageRepn,permutation_dest);
 
-      if (perm_filename != NULL) {
-        VAppendAttr(perm_out_list,"image",NULL,VImageRepn,permutation_dest);
-      } else {
-        VAppendAttr(out_list,"image",NULL,VImageRepn,permutation_dest);
-      }
       ++permutation_progress;
     }
 
-    if (perm_filename != NULL) {
-      cerr << "Writing extra file" << endl;
-      FILE  *perm_file  = fopen(perm_filename,"w");
-      cerr << "File: " << perm_file << endl;
-      VWriteFile(perm_file, perm_out_list);
-      fclose(perm_file);
-    }
+    cerr << "Writing extra file" << endl;
+    FILE  *perm_file  = fopen(perm_filename,"w");
+    VWriteFile(perm_file, perm_out_list);
+    fclose(perm_file);
 
     cerr << "done." << endl;
   }

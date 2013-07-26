@@ -4,21 +4,21 @@
  * SVR - Support Vector Regression
  *
  * Usage:
- *  vsvr -in samples.v -y response.txt [-scale] [-pca] [-saveperm] [-nperm number of permutations] [-j nprocs] [svr options] [-permfile permutations.v]
+ *  vsvr -in samples.v -y response.txt [-scale <true|false>] [-pca <true|false>] [-saveperm] [-nperm number of permutations] [-j nprocs] [svr options] [-permfile permutations.v]
  *
  *  options:
  *    -in samples.v
  *      input files 
  *    -y
  *      input file containing responses (one per line and sample)
- *    -scale
- *      Whether to scale data
+ *    -scale <true|false>
+ *      Whether to scale data (default: true)
  *    -saveperm
  *      Whether to save permutations to output file
  *    -nperm
  *      Number of permutations (default: 0)
  *    -pca
- *      Wheter to process data with a principal component analysis
+ *      Wheter to process data with a principal component analysis (default: false)
  *    -j nprocs
  *      number of processors to use, '0' to use all
  *    -permfile permutations.v
@@ -119,7 +119,7 @@ int main (int argc,char *argv[]) {
   static VArgVector input_filenames;
   VString   y_file          = NULL;
   VString   perm_filename = NULL;
-  VBoolean  do_scale        = false;
+  VBoolean  do_scale        = true;
   VBoolean  do_pca          = false;
   VBoolean  save_perms      = false;
   VShort    nproc           = 4;
@@ -342,10 +342,7 @@ int main (int argc,char *argv[]) {
 
   // Scale features
   if (do_scale) {
-    cerr << "SKALIERE!" << endl;
     mrisvm.scale();
-  } else {
-    cerr << "Skaliere nicht." << endl;
   }
 
   // Get weights
