@@ -12,6 +12,26 @@ extern "C" {
 
 using namespace isis;
 
+void fixTiming(std::list<data::Image> &images){
+	BOOST_FOREACH(data::Image &img,images){
+		const data::Chunk first=img.getChunk(0,0,0,0,false);
+		if(img.getDimSize(data::timeDim)>2 && first.hasProperty("acquisitionTime")){
+			std::vector< data::Chunk > chunks=img.copyChunksToVector();
+			size_t chunks_per_volume=img.getVolume()/img.getDimSize(data::timeDim)/first.getVolume();
+
+			// get the time difference between two volumes (time of first chunk of third volume minus time of first chunk of second volume)
+			float offset=chunks[chunks_per_volume*2].getPropertyAs<float>("acquisitionTime")-chunks[chunks_per_volume].getPropertyAs<float>("acquisitionTime");
+
+			// iterate over the first volume and reset time
+			for(size_t i=0;i<chunks_per_volume;i++){
+				float next_time=chunks[i+chunks_per_volume].getPropertyAs<float>("acquisitionTime");
+				chunks[i].setPropertyAs("acquisitionTime",next_time-offset);
+			}
+			img=data::Image(chunks);//reassemble the image
+		}
+	}
+}
+
 int main( int argc, char **argv )
 {
 	isis::util::enableLog<isis::util::DefaultMsgPrint>( isis::error );
@@ -27,6 +47,11 @@ int main( int argc, char **argv )
 	app.parameters["tr"] = 0.;
 	app.parameters["tr"].needed() = false;
 	app.parameters["tr"].setDescription( "Repetition time in s" );
+
+	app.parameters["fixtiming"] = false;
+	app.parameters["fixtiming"].needed()=false;
+	app.parameters["fixtiming"].setDescription("Fix slice timing of the first volume by copying it from the second volume");
+
 	app.init( argc, argv ); // will exit if there is a problem
 
 	if( app.parameters["tr"].as<double>() > 0 ) {
@@ -58,9 +83,14 @@ int main( int argc, char **argv )
 			boost::filesystem::path newPath( out.branch_path() /  countString.str() );
 			std::list<data::Image> tmpList;
 			tmpList.push_back( map.second );
+
+			if(app.parameters["fixtiming"])
+				fixTiming(tmpList);
 			data::IOFactory::write( tmpList, newPath.string(), app.parameters["wf"].toString().c_str(), app.parameters["wdialect"].toString().c_str() );
 		}
 	} else {
+		if(app.parameters["fixtiming"])
+			fixTiming(app.images);
 		app.autowrite( app.images );
 	}
 
