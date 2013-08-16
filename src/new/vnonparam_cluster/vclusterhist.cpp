@@ -43,7 +43,7 @@ using std::endl;
 using std::vector;
 
 extern "C" VImage VLabelImage3d(VImage, VImage, int, VRepnKind, int *);
-extern "C" void getLipsiaVersion(char*,size_t);
+//extern "C" void getLipsiaVersion(char*,size_t);
 
 #ifdef _OPENMP
 /**
@@ -60,6 +60,65 @@ void configure_omp(int nproc) {
 }
 #endif /*OPENMP */
 
+std::vector<double> clusterProbabilities(std::vector<double> &cluster_sizes) {
+  double N = cluster_sizes.size();
+
+  vector<double> cluster_size_p;
+
+  sort(cluster_sizes.begin(),cluster_sizes.end(),std::greater<double>());
+
+  double cum_sum = 0;
+  // FIXME totally unnecessary
+  BOOST_FOREACH(double this_size, cluster_sizes) {
+    cum_sum += 1.0;
+    cluster_size_p.push_back(cum_sum / N);
+  }
+
+  return cluster_size_p;
+}
+
+/* Counts clusters and their sizes in this image */
+std::vector<double> imageClusterSizes(VImage new_image, int number_of_bands, int number_of_rows , int number_of_columns) {
+  VImage label_image = VCreateImage(number_of_bands, number_of_rows , number_of_columns, VShortRepn);
+  VFillImage(label_image,VAllBands,0);
+
+  int number_of_labels;
+  label_image = VLabelImage3d(new_image, label_image, 6, VShortRepn, &number_of_labels);
+
+  vector<double>  cluster_size(number_of_labels);       // [0..number_of_labels-1]
+
+  // Set cluster sizes to zero
+  for (int label = 0; label < number_of_labels; label++)  {
+    cluster_size[label]       = 0.0;
+  }
+
+  for (int band(0); band < number_of_bands; band++) {
+    for (int row(0); row < number_of_rows; row++) {
+      for (int column(0); column < number_of_columns; column++) {
+        short label = VPixel(label_image, band, row, column, VShort);
+
+        if ((label > number_of_labels) || (label < 0)) {
+          cerr << "Got unexpected label: " << label << endl;
+          exit(-1);
+        }
+
+        if (label >= 1) {
+          cluster_size[label-1]++;
+        }
+
+      }
+    }
+  }
+  // Convert array of "label -> dimension" to vector of dimensions 
+  vector<double>  cluster_sizes;
+  for (int label = 0; label < number_of_labels; label++) {
+    if (cluster_size[label] > 1) {
+      cluster_sizes.push_back(cluster_size[label]);
+    }
+  }
+  return cluster_sizes;
+}
+
 int main (int argc,char *argv[]) {
   /**************************
    * Initialise Vista Stuff *
@@ -67,7 +126,7 @@ int main (int argc,char *argv[]) {
 
   // Output program name and version
   char version[100];
-  getLipsiaVersion(version, sizeof(version));
+  //getLipsiaVersion(version, sizeof(version));
   cerr << argv[0] << " V" << version << endl;
 
   /*********************************
@@ -146,115 +205,56 @@ int main (int argc,char *argv[]) {
   int number_of_columns = VImageNColumns(source_images.front());
 
   cerr << "Writing out." << endl;
-
-  /*
-  BOOST_FOREACH(VImage old_image, source_images) {
-    int band    = 14;
-    int row     = 18;
-    int column  = 111;
-
-    cerr << band << "/" << row << "/" << column << endl;
-    cerr << "Pixel: " << VGetPixel(old_image,band, row, column) << "  " << VGetPixel(t_images[0],band, row, column) << "  "<< VGetPixel(t_images[1],band, row, column) << endl;
-  }
-  exit(-1);
-  */
-
-  VImage label_image = VCreateImage(number_of_bands, number_of_rows , number_of_columns, VShortRepn);
-
-  vector<double>  cluster_sizes;
-
-  int max_cluster_size = 0;
+  
+  vector<double> cumulative_pos_cluster_sizes;
+  vector<double> cumulative_neg_cluster_sizes;
 
   BOOST_FOREACH(VImage old_image, source_images) {
-    VImage new_image = VCreateImage(number_of_bands,number_of_rows,number_of_columns, VBitRepn);
-    VFillImage(new_image, VAllBands, 0);
-    VCopyImageAttrs (old_image, new_image);
-    VSetAttr(VImageAttrList(new_image),"name",NULL,VStringRepn,"Binarization");
+    VImage pos_image  = VCreateImage(number_of_bands,number_of_rows,number_of_columns, VBitRepn);
+    VImage neg_image  = VCreateImage(number_of_bands,number_of_rows,number_of_columns, VBitRepn);
+
+    VFillImage(pos_image, VAllBands, 0);
+    VFillImage(neg_image, VAllBands, 0);
+
+    VCopyImageAttrs (old_image, pos_image);
+    VCopyImageAttrs (old_image, neg_image);
+
+    VSetAttr(VImageAttrList(pos_image),"name",NULL,VStringRepn,"Binarization");
+    VSetAttr(VImageAttrList(neg_image),"name",NULL,VStringRepn,"Binarization");
 
     for(int band(0); band < number_of_bands; band++) {
       for(int row(0); row < number_of_rows; row++) {
         for(int column(0); column < number_of_columns; column++) {
-          int presence = 0;
-
-          if (VGetPixel(old_image, band, row, column) > VGetPixel(t_images[0],band, row, column))
-            presence = 1;
-          if ((nr_images == 2) && VGetPixel(old_image, band, row, column) < VGetPixel(t_images[1],band, row, column))
-            presence = 1;
-
-          VPixel(new_image, band, row, column, VBit) = presence;
-
-        }
-      }
-    }
-    // Let's count clusters in this picture
-    int number_of_labels;
-    VFillImage(label_image,VAllBands,0);
-    //label_image = VLabelImage3d(new_image, label_image, 26, VShortRepn, &number_of_labels);
-    label_image = VLabelImage3d(new_image, label_image, 6, VShortRepn, &number_of_labels);
-
-    vector<double>  cluster_size(number_of_labels);       // [0..number_of_labels-1]
-    vector<int>     cluster_dimension(number_of_labels);  // [0..number_of_labels-1]
-
-    for (int label = 0; label < number_of_labels; label++)  {
-      cluster_size[label]       = 0.0;
-      cluster_dimension[label]  = 0;
-    }
-
-    for(int band(0); band < number_of_bands; band++) {
-      for(int row(0); row < number_of_rows; row++) {
-        for(int column(0); column < number_of_columns; column++) {
-          short label = VPixel(label_image, band, row, column, VShort);
-
-          if ((label > number_of_labels) || (label < 0)) {
-            cerr << "Got unexpected label: " << label << endl;
-            exit(-1);
+          // Positive cluster
+          if (VGetPixel(old_image, band, row, column) > VGetPixel(t_images[0],band, row, column)) {
+            VPixel(pos_image, band, row, column, VBit) = 1;
           }
-          if (label >= 1) {
-            cluster_dimension[label-1]++;
-            if (VGetPixel(old_image, band, row, column) > VGetPixel(t_images[0], band, row, column)) {
-              //cluster_size[label-1] += (VGetPixel(old_image, band, row, column) / VGetPixel(t_images[0],band, row, column) -1);
-              cluster_size[label-1] += 1;
-            } else if ((nr_images == 2) && VGetPixel(old_image, band, row, column) < VGetPixel(t_images[1],band, row, column)) {
-              //cluster_size[label-1] += (VGetPixel(old_image, band, row, column) / VGetPixel(t_images[1],band, row, column) -1);
-              cluster_size[label-1] += 1;
-            }
+          // Negative cluster (only in two sided tests)
+          if ((nr_images == 2) && VGetPixel(old_image, band, row, column) < VGetPixel(t_images[1],band, row, column)) {
+            VPixel(neg_image, band, row, column, VBit) = 1;
           }
         }
       }
     }
-    //cerr << "Cluster Nr 1 dimension=" << cluster_dimension[0] << " size=" << cluster_size[0] << endl;
-
-    for (int label = 0; label < number_of_labels; label++) {
-      if (cluster_dimension[label] > 1) {
-        cluster_sizes.push_back(cluster_size[label]);
-        if (cluster_size[label] > max_cluster_size)
-          max_cluster_size = cluster_size[label];
-      }
-    }
+    std::vector<double> pos_cluster_sizes = imageClusterSizes(pos_image, number_of_bands, number_of_rows, number_of_columns);
+    std::vector<double> neg_cluster_sizes = imageClusterSizes(neg_image, number_of_bands, number_of_rows, number_of_columns);
+    cumulative_pos_cluster_sizes.insert(cumulative_pos_cluster_sizes.end(), pos_cluster_sizes.begin(), pos_cluster_sizes.end());
+    cumulative_neg_cluster_sizes.insert(cumulative_neg_cluster_sizes.end(), neg_cluster_sizes.begin(), neg_cluster_sizes.end());
   }
 
-  double N = cluster_sizes.size();
-  /*
-  BOOST_FOREACH(double this_cluster_size, cluster_sizes) {
-    N += this_cluster_size;
-  }
-  */
-
-  vector<double> cluster_size_p;
-
-  sort(cluster_sizes.begin(),cluster_sizes.end(),std::greater<double>());
-
-  double cum_sum = 0;
-  // FIXME totally unnecessary
-  BOOST_FOREACH(double this_size, cluster_sizes) {
-    cum_sum += 1.0;
-    cluster_size_p.push_back(cum_sum / N);
-  }
+  std::vector<double> pos_cluster_size_p = clusterProbabilities(cumulative_pos_cluster_sizes);
+  std::vector<double> neg_cluster_size_p = clusterProbabilities(cumulative_neg_cluster_sizes);
 
   FILE *hist_file = fopen(hist_filename,"w");  
-  for (unsigned int i = 0; i < cluster_sizes.size(); i++) {
-    fprintf(hist_file,"%e\t%e\n",cluster_sizes[i],cluster_size_p[i]);
+
+  for (unsigned int i = 0; i < cumulative_pos_cluster_sizes.size(); i++) {
+    fprintf(hist_file,"%e\t%e\t1\n",cumulative_pos_cluster_sizes[i],pos_cluster_size_p[i]);
   }
+  
+  for (unsigned int i = 0; i < cumulative_neg_cluster_sizes.size(); i++) {
+    fprintf(hist_file,"%e\t%e\t-1\n",cumulative_neg_cluster_sizes[i],neg_cluster_size_p[i]);
+  }
+
   fclose(hist_file);
 
   cerr << "Done." << endl;
