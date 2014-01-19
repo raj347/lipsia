@@ -40,4 +40,5 @@ add_subdirectory(vsplitbeta)
 add_subdirectory(vconvertR)
 add_subdirectory(vycorr)
 add_subdirectory(vnonparam_cluster)
+add_subdirectory(vmontecarlo_group)
 

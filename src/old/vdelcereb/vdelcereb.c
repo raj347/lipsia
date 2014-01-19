@@ -27,7 +27,7 @@
 
 /* From the Vista library: */
 #include <viaio/Vlib.h>
-#include <via.h>
+#include <via/via.h>
 #include <viaio/mu.h>
 #include <viaio/option.h>
 

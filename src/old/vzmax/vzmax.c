@@ -28,7 +28,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <via.h>
+#include <via/via.h>
 
 extern VImage VZMax(VImage, VImage, VDouble, VDouble, VDouble, VShort, VFloat, VShort, VString);
 extern void getLipsiaVersion(char*,size_t);

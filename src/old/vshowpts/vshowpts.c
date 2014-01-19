@@ -30,7 +30,7 @@
 #include <viaio/file.h>
 #include <viaio/mu.h>
 #include <viaio/option.h>
-#include <via.h>
+#include <via/via.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -181,7 +181,7 @@ int main(int argc, char *argv[]) {
             "file containing coordinates"
         },
         {
-            "system", VLongRepn, 1, &system, VOptionalOpt, TALDict,
+            "system", VShortRepn, 1, &system, VOptionalOpt, TALDict,
             "Type of coordinate system (voxel,talairach,mni)"
         },
         {"resolution", VFloatRepn, 1, &reso, VOptionalOpt, NULL, "voxel size in mm" },

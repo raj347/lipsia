@@ -38,7 +38,7 @@
 /* From the Vista library: */
 #include "viaio/Vlib.h"
 #include "viaio/mu.h"
-#include "via.h"
+#include "via/via.h"
 
 
 /* From the standard C libaray: */

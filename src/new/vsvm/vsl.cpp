@@ -5,7 +5,7 @@
  * SearchlightSVM and then write result into another Vista file
  *
  * Usage:
- *  vsl -in1 class1samples.v -in2 class2samples.v [-radius radius] [-scale] [-saveperm] [-nperm number of permutations] [-j nprocs] [svm options]
+ *  vsl -in1 class1samples.v -in2 class2samples.v [-radius radius] [-scale] [-nperm number of permutations] [-j nprocs] [-permfile <permutations.v>] [svm options]
  *
  *  options:
  *    -in1 class1samples.v
@@ -16,13 +16,13 @@
  *      Searchlight Radius (in mm)
  *    -scale
  *      Whether to scale data
- *    -saveperm 
- *      Whether to save permutations to output file
  *    -nperm
  *      Number of permutations (default: 0)
  *      If > 0, we also generate a z map
  *    -j nprocs
  *      number of processors to use, '0' to use all
+ *    -permfile permutations.v
+ *      store permutations in permutations.v
  *
  *  svm options:
  *    -svm_type C_SVC | NU_SVC
@@ -197,12 +197,13 @@ int main (int argc,char *argv[]) {
   VDouble           radius          = DEFAULT_SEARCHLIGHT_RADIUS;
 
   VBoolean          do_scale        = false;
-  VBoolean          save_perms      = false;
 
   VShort            nproc           = 4;
   VShort            nperm           = 0;
   VShort            leaveout        = 2;
   static VArgVector input_filenames1,input_filenames2;
+  
+  VString           perm_filename    = NULL;
 
   /* 
    * SVM Parameters
@@ -224,10 +225,10 @@ int main (int argc,char *argv[]) {
     {"in2",           VStringRepn, 0, &input_filenames2,VRequiredOpt, NULL, "Input files (class 2)" },
     {"radius",        VDoubleRepn, 1, &radius,          VOptionalOpt, NULL, "Searchlight Radius (in mm)" },
     {"scale",         VBooleanRepn,1, &do_scale,        VOptionalOpt, NULL, "Whether to scale data"},
-    {"saveperms",     VBooleanRepn,1, &save_perms,      VOptionalOpt, NULL, "Whether to store permutations" },
     {"j",             VShortRepn,  1, &nproc,           VOptionalOpt, NULL, "number of processors to use, '0' to use all" },
     {"nperm",         VShortRepn,  1, &nperm,           VOptionalOpt, NULL, "number of permutations to generate" },
     {"l",             VShortRepn,  1, &leaveout,        VOptionalOpt, NULL, "leaveout" },
+    {"permfile",      VStringRepn, 1, &perm_filename,   VOptionalOpt, NULL, "File to store permutations (if extra file)" },
     {"svm_type",      VStringRepn, 1, &svm_type,        VOptionalOpt, NULL, "SVM Type parameter (C_SVC or NU_SVC)" },
     {"svm_kernel",    VStringRepn, 1, &svm_kernel_type, VOptionalOpt, NULL, "SVM Kernel parameter (LINEAR, POLY, RBF, SIGMOID, or PRECOMPUTED)" },
     {"svm_degree",    VLongRepn,   1, &svm_degree,      VOptionalOpt, NULL, "SVM degree parameter (for POLY kernel)" },
@@ -239,6 +240,12 @@ int main (int argc,char *argv[]) {
     {"svm_nu",        VDoubleRepn, 1, &svm_nu,          VOptionalOpt, NULL, "SVM nu parameter (for NU_SVC svm type)" }
   };
   VParseFilterCmd(VNumber(program_options),program_options,argc,argv,NULL,&out_file);
+  
+  VBoolean          save_perms      = false;
+  if (perm_filename != NULL) {
+    cerr << "Filename: " << perm_filename << endl;
+    save_perms = true;
+  }
   
   bool  do_permutations = (nperm > 0);
 
@@ -512,11 +519,14 @@ int main (int argc,char *argv[]) {
   VSetAttr(VImageAttrList(p_dest),"name",NULL,VStringRepn,"SearchLightSVM non-parametric p");
   VAttrList out_list = VCreateAttrList();
   VAppendAttr(out_list,"image",NULL,VImageRepn,dest);
+
   if (do_permutations) {
     VAppendAttr(out_list,"image",NULL,VImageRepn,p_dest);
   }
 
   if (do_permutations && save_perms) {
+    VAttrList perm_out_list = VCreateAttrList();
+
     for(int permutation_loop(0); permutation_loop < actual_permutations; permutation_loop++) {
       VImage dest = VCreateImage(number_of_bands,number_of_rows,number_of_columns,VFloatRepn);
       VFillImage(dest,VAllBands,0);
@@ -539,8 +549,13 @@ int main (int argc,char *argv[]) {
 
       VSetAttr(VImageAttrList(dest),"permutation",NULL,VStringRepn,permutation_text.str().c_str());
       VSetAttr(VImageAttrList(dest),"name",NULL,VStringRepn,"Searchlight Permutation");
-      VAppendAttr(out_list,"image",NULL,VImageRepn,dest);
+      VAppendAttr(perm_out_list,"image",NULL,VImageRepn, dest);
     }
+
+    cerr << "Writing extra file" << endl;
+    FILE  *perm_file  = fopen(perm_filename,"w");
+    VWriteFile(perm_file, perm_out_list);
+    fclose(perm_file);
   }
 
   VHistory(VNumber(program_options),program_options,argv[0],&attribute_list,&out_list);

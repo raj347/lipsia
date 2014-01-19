@@ -15,14 +15,12 @@
 
 # INCLUDE directories
 FIND_PATH(VIA_INCLUDE_DIR
-    NAMES via.h
-    PATH_SUFFIXES via
+    NAMES via/via.h
     DOC "The include directory containing via.h"
     )
     
 FIND_PATH(VIAIO_INCLUDE_DIR
-    NAMES VImage.h
-    PATH_SUFFIXES viaio
+	NAMES viaio/VImage.h
     DOC "The include directory containing VImage.h and option.h"
     )
 

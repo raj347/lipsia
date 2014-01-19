@@ -52,7 +52,7 @@
 
 #define ETMP     128   /* max number of temporary images for smoothness estim */
 #define NSLICES 2500   /* max number of image slices */
-#define MBETA    512   /* max number of covariates */
+#define MBETA    2048  /* max number of covariates */
 
 #define ABS(x) ((x) > 0 ? (x) : -(x))
 
@@ -101,6 +101,32 @@ Mat2Vista(gsl_matrix_float *A) {
     return dest;
 }
 
+/*
+ * Read the first image from one of the input files to be later used as attribute template
+ *
+ */
+
+VImage read_attribute_template(VString filename) {
+  VImage attribute_image;
+
+  FILE *attribute_input_file = VOpenInputFile(filename, TRUE);
+  VAttrList attribute_list  = VReadFile(attribute_input_file, NULL);
+  fclose(attribute_input_file);
+
+  if(!attribute_list)
+    VError("Error reading image");
+
+  VAttrListPosn position;
+
+  for (VFirstAttr(attribute_list, &position); VAttrExists(&position); VNextAttr(&position)) {
+    if (VGetAttrRepn(&position) != VImageRepn)
+      continue;
+    VGetAttrValue(&position,NULL,VImageRepn,&attribute_image);
+    break;
+  }
+
+  return attribute_image;
+}
 
 /*
 ** general linear regression
@@ -218,10 +244,22 @@ VRegression(ListInfo *linfo, int nlists, VShort minval, VImage design, VFloat si
     /*
     ** create output images
     */
+
+    /*
+     * Get attribute list from first image in first file (filename is linfo[0].filename)
+     *
+     */
+
+    /************
+    * TILOSTUFF *
+    *************/
+    VImage attribute_image = read_attribute_template(linfo[0].filename);
+
     xinfo = linfo[0].info;
     out_list = VCreateAttrList();
     res_image = VCreateImage(nslices, nrows, ncols, VFloatRepn);
     VFillImage(res_image, VAllBands, 0);
+    VCopyImageAttrs(attribute_image, res_image);
     VSetAttr(VImageAttrList(res_image), "name", NULL, VStringRepn, "RES/trRV");
     VSetAttr(VImageAttrList(res_image), "modality", NULL, VStringRepn, "RES/trRV");
     VSetAttr(VImageAttrList(res_image), "df", NULL, VFloatRepn, df);
@@ -229,6 +267,15 @@ VRegression(ListInfo *linfo, int nlists, VShort minval, VImage design, VFloat si
     VSetAttr(VImageAttrList(res_image), "voxel", NULL, VStringRepn, xinfo->voxel);
     VSetAttr(VImageAttrList(res_image), "repetition_time", NULL, VLongRepn, itr);
     VSetAttr(VImageAttrList(res_image), "talairach", NULL, VStringRepn, xinfo->talairach);
+
+    /* neu */
+    VSetAttr(VImageAttrList(res_image),"indexOrigin",NULL,VStringRepn,xinfo->indexOrigin);
+    VSetAttr(VImageAttrList(res_image),"columnVec",NULL,VStringRepn,xinfo->columnVec);
+    VSetAttr(VImageAttrList(res_image),"rowVec",NULL,VStringRepn,xinfo->rowVec);
+    VSetAttr(VImageAttrList(res_image),"sliceVec",NULL,VStringRepn,xinfo->sliceVec);
+    VSetAttr(VImageAttrList(res_image),"FOV",NULL,VStringRepn,xinfo->FOV);
+    /*--------*/
+
     if(xinfo->fixpoint[0] != 'N')
         VSetAttr(VImageAttrList(res_image), "fixpoint", NULL, VStringRepn, xinfo->fixpoint);
     if(xinfo->ca[0] != 'N') {
@@ -240,10 +287,23 @@ VRegression(ListInfo *linfo, int nlists, VShort minval, VImage design, VFloat si
     for(i = 0; i < n; i++) {
         beta_image[i] = VCreateImage(nslices, nrows, ncols, VFloatRepn);
         VFillImage(beta_image[i], VAllBands, 0);
+
+        VCopyImageAttrs(attribute_image, beta_image[i]);
+
         VSetAttr(VImageAttrList(beta_image[i]), "patient", NULL, VStringRepn, xinfo->patient);
         VSetAttr(VImageAttrList(beta_image[i]), "voxel", NULL, VStringRepn, xinfo->voxel);
         VSetAttr(VImageAttrList(beta_image[i]), "repetition_time", NULL, VLongRepn, itr);
         VSetAttr(VImageAttrList(beta_image[i]), "talairach", NULL, VStringRepn, xinfo->talairach);
+
+	/* neu */
+	VSetAttr(VImageAttrList(beta_image[i]),"indexOrigin",NULL,VStringRepn,xinfo->indexOrigin);
+	VSetAttr(VImageAttrList(beta_image[i]),"columnVec",NULL,VStringRepn,xinfo->columnVec);
+	VSetAttr(VImageAttrList(beta_image[i]),"rowVec",NULL,VStringRepn,xinfo->rowVec);
+	VSetAttr(VImageAttrList(beta_image[i]),"sliceVec",NULL,VStringRepn,xinfo->sliceVec);
+	VSetAttr(VImageAttrList(beta_image[i]),"FOV",NULL,VStringRepn,xinfo->FOV);
+	/*--------*/
+
+
         if(xinfo->fixpoint[0] != 'N')
             VSetAttr(VImageAttrList(beta_image[i]), "fixpoint", NULL, VStringRepn, xinfo->fixpoint);
         if(xinfo->ca[0] != 'N') {
@@ -512,10 +572,13 @@ main(int argc, char *argv[]) {
             VPrependHistory(VNumber(options), options, prg_name, &history_list);
         }
     }
+
     /*
     ** GLM
     */
     out_list = VRegression(linfo, nimages, minval, design, sigma, itr);
+
+
     /*
     **  Output:
     */

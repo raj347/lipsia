@@ -31,7 +31,7 @@
 #include <viaio/Vlib.h>
 #include <viaio/mu.h>
 #include <viaio/option.h>
-#include <via.h>
+#include <via/via.h>
 
 /* From the standard C libaray: */
 #include <stdio.h>

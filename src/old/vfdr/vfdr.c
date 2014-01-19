@@ -34,7 +34,7 @@
 #include <string.h>
 #include <math.h>
 #include <stdlib.h>
-#include <via.h>
+#include <via/via.h>
 
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_vector.h>

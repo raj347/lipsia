@@ -5,7 +5,7 @@
 #include <math.h>
 
 extern "C" {
-#include <via.h>
+#include <via/via.h>
 }
 #define DEBUGING 0
 #define NP -32768

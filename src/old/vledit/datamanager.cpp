@@ -31,7 +31,7 @@
 #include <qstringlist.h>
 
 extern "C" {
-#include <via.h>
+#include <via/via.h>
 }
 
 using namespace std;
