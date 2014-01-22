@@ -1,16 +1,20 @@
-lipsia (2.2.9-2) UNRELEASED; urgency=low
+lipsia (2.2.11-1) stable; urgency=low
 
   * remove vselect (it's already in via)
   * add package for qt3 stuff
+  * re-add qt3 programms (use "deb http://de.archive.ubuntu.com/ubuntu precise main universe" to resolve deps)
+  * fix slice timing of the first volume by clonig it from the second volume
+  * fix segfault in vmaskedit
+  * fix crash in vshowpts
 
- -- Enrico Reimer <reimer@cbs.mpg.de>  Wed, 05 Jun 2013 23:17:25 +0000
+ -- Lipsia Group (The official Lipsia developer group) <lipsia@cbs.mpg.de>  Sun, 19 Jan 2014 23:45:22 +0100
 
 lipsia (2.2.9-1) stable; urgency=low
 
   * fix segfault in vmaskedit
   * minor cmake cleanup
 
- -- Enrico Reimer <reimer@cbs.mpg.de>  Thu, 25 Apr 2013 18:45:42 +0200
+ -- Lipsia Group (The official Lipsia developer group) <lipsia@cbs.mpg.de>  Mon, 29 Apr 2013 22:10:28 +0000
 
 lipsia (2.2.8-1) stable; urgency=low
 

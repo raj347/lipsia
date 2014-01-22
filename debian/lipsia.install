@@ -115,5 +115,5 @@ debian/tmp/usr/bin/vzmax usr/bin
 
 debian/tmp/usr/share/lipsia/* usr/share/lipsia
 
-debian/tmp/usr/lib/lipsia/libarfit.so.2.2.8 usr/lib/lipsia
-debian/tmp/usr/lib/lipsia/liblipsia.so.2.2.8 usr/lib/lipsia
+debian/tmp/usr/lib/lipsia/libarfit.so.* usr/lib/lipsia
+debian/tmp/usr/lib/lipsia/liblipsia.so.* usr/lib/lipsia
