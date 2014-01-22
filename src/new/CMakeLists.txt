@@ -1,9 +1,11 @@
 #all new programs coming from the lipsia sandbox package
 #isis related programs begin
-add_subdirectory(valign3d)
+if(ITK3_SUPPORT)
+	add_subdirectory(valign3d)
+	add_subdirectory(vdotrans3d)
+endif(ITK3_SUPPORT)
 add_subdirectory(vvinidi)
 add_subdirectory(vswapdim)
-add_subdirectory(vdotrans3d)
 #end
 add_subdirectory(vReHo)
 add_subdirectory(vdespike)
