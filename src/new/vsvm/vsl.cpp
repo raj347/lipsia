@@ -80,6 +80,7 @@
 #include "MriSvm.h"
 #include "MriTypes.h"
 #include "SearchLight.h"
+#include "compat.h"
 
 // Some stuff I am using from boost and std lib, explicitly declared
 using std::cerr;
@@ -432,11 +433,11 @@ int main (int argc,char *argv[]) {
 
   /* Measure time */
   struct timespec start,end;
-  clock_gettime(CLOCK_MONOTONIC,&start);
+  lipsia_gettime(&start);
 
   sample_validity_array_type validities = sl.calculate(radius,leaveout);
 
-  clock_gettime(CLOCK_MONOTONIC,&end);
+  lipsia_gettime(&end);
   long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
   cout << "Execution time: " << execution_time / 1e9 << "s" << endl;
 
@@ -445,13 +446,13 @@ int main (int argc,char *argv[]) {
 
   int actual_permutations  = 0;
   if (do_permutations) {
-    clock_gettime(CLOCK_MONOTONIC,&start);
+    lipsia_gettime(&start);
     permutated_validities.resize(boost::extents[number_of_bands][number_of_rows][number_of_columns][nperm]);
 
     actual_permutations = sl.calculate_permutations( permutated_validities, permutations, nperm, radius, leaveout);
     cerr << "Actual permutations: " << actual_permutations << endl;
 
-    clock_gettime(CLOCK_MONOTONIC,&end);
+    lipsia_gettime(&end);
     long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
     cout << "Execution time: " << execution_time / 1e9 << "s" << endl;
   }

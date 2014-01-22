@@ -32,6 +32,7 @@
 
 // Class headers
 #include "SearchLight.h"
+#include "compat.h"
 
 // OpenMP header
 #ifdef _OPENMP
@@ -331,9 +332,9 @@ sample_validity_array_type SearchLight::calculate(double radius, int leaveout) {
         if (!(is_voxel_zero(band,row,column))) {
           // Put stuff into feature fector, to SVM
           //struct timespec start,end;
-          //clock_gettime(CLOCK_MONOTONIC,&start);
+          //lipsia_gettime(&start);
           validities[band][row][column] = cross_validate(band,row,column,relative_coords, leaveout);
-          //clock_gettime(CLOCK_MONOTONIC,&end);
+          //lipsia_gettime(&end);
           //long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
           //std::cerr << "Execution time: " << execution_time / 1e6 << "ms" << endl;
         } else {
@@ -670,9 +671,9 @@ int SearchLight::calculate_permutations(permutated_validities_type &permutated_v
         if (!(is_voxel_zero(band,row,column))) {
           // Put stuff into feature fector, to SVM
           //struct timespec start,end;
-          //clock_gettime(CLOCK_MONOTONIC,&start);
+          //lipsia_gettime(&start);
           cross_validate_permutations(permutated_validities, number_of_permutations, permutations, band ,row,column, relative_coords, leaveout);
-          //clock_gettime(CLOCK_MONOTONIC,&end);
+          //lipsia_gettime(&end);
           //long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
           //cerr << "Execution time: " << execution_time / 1e9 << "s" << endl;
         } else {

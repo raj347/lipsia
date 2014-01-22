@@ -46,6 +46,8 @@
 #include <viaio/mu.h>
 #include <viaio/option.h>
 
+#include "compat.h"
+
 // Some stuff I am using from boost and std lib, explicitly declared
 using std::cerr;
 using std::cout;
@@ -224,7 +226,7 @@ int main (int argc,char *argv[]) {
 
   /* Measure time */
   struct timespec start,end;
-  clock_gettime(CLOCK_MONOTONIC,&start);
+  lipsia_gettime(&start);
 
   VAttrList out_list = VCreateAttrList();
   for(int feature_index(0); feature_index < number_of_features_per_voxel; feature_index++) {
@@ -279,7 +281,7 @@ int main (int argc,char *argv[]) {
   VHistory(VNumber(program_options),program_options,argv[0],&attribute_list,&out_list);
   VWriteFile(out_file, out_list);
 
-  clock_gettime(CLOCK_MONOTONIC,&end);
+  lipsia_gettime(&end);
 
   long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
   cout << "Execution time: " << execution_time / 1e9 << "s" << endl;

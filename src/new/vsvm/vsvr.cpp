@@ -68,6 +68,7 @@
 // Class header
 #include "MriSvm.h"
 #include "PCA.h"
+#include "compat.h"
 
 using std::cerr;
 using std::cout;
@@ -335,7 +336,7 @@ int main (int argc,char *argv[]) {
 
   cerr << "Conducting SVM ... ";
   struct timespec start,end;
-  clock_gettime(CLOCK_MONOTONIC,&start);
+  lipsia_gettime(&start);
 
   MriSvm mrisvm(svm_input, y, number_of_samples, number_of_svm_features);
   mrisvm.set_parameters(parameter);
@@ -348,7 +349,7 @@ int main (int argc,char *argv[]) {
   // Get weights
   boost::multi_array<float, 1> weights;
   mrisvm.train_weights(weights);
-  clock_gettime(CLOCK_MONOTONIC,&end);
+  lipsia_gettime(&end);
 
   long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
   cerr << "Execution time: " << execution_time / 1e9 << "s" << endl;
@@ -405,7 +406,7 @@ int main (int argc,char *argv[]) {
     for(int row(0); row < number_of_rows; row++) {
       for(int column(0); column < number_of_columns; column++) {
         if (!voxel_is_empty[band][row][column]) {
-          clock_gettime(CLOCK_MONOTONIC,&start);
+          lipsia_gettime(&start);
           /****************
            * Write weight *
            ****************/
@@ -416,17 +417,17 @@ int main (int argc,char *argv[]) {
              * Write p value *
              *****************/
             struct timespec i_start,i_end;
-            clock_gettime(CLOCK_MONOTONIC,&i_start);
+            lipsia_gettime(&i_start);
             for (int i = 0; i < actual_permutations; i++) {
               voxel_specific_permutations[i] = gsl_matrix_float_get(voxel_permutation_weights, i, feature_index);
             }
 
-            clock_gettime(CLOCK_MONOTONIC,&i_end);
+            lipsia_gettime(&i_end);
             long long int i_execution_time = (i_end.tv_sec * 1e9 + i_end.tv_nsec) - (i_start.tv_sec * 1e9 + i_start.tv_nsec);
             //cerr << "i:" << i_execution_time / 1e6 << "ms\t";
 
             struct timespec a_start,a_end;
-            clock_gettime(CLOCK_MONOTONIC,&a_start);
+            lipsia_gettime(&a_start);
             // Sort permutated voxel weights
             std::sort( voxel_specific_permutations.begin(), voxel_specific_permutations.end());
 
@@ -447,13 +448,13 @@ int main (int argc,char *argv[]) {
               p = 1.0 / (float) actual_permutations;
 
             VPixel(p_dest,band,row,column,VFloat) = -log10(p);
-            clock_gettime(CLOCK_MONOTONIC,&a_end);
+            lipsia_gettime(&a_end);
             long long int a_execution_time = (a_end.tv_sec * 1e9 + a_end.tv_nsec) - (a_start.tv_sec * 1e9 + a_start.tv_nsec);
             //cerr << "a:" << a_execution_time / 1e6 << "ms\t";
           }
           feature_index++;
           ++writing_progress;
-          clock_gettime(CLOCK_MONOTONIC,&end);
+          lipsia_gettime(&end);
           long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
           //cerr << "e:" << execution_time / 1e6 << "ms\t";
         }
@@ -560,7 +561,7 @@ int main (int argc,char *argv[]) {
 //
 //  cerr << "Conducting SVR ... ";
 //  struct timespec start,end;
-//  clock_gettime(CLOCK_MONOTONIC,&start);
+//  lipsia_gettime(&start);
 //
 //  MriSvm mrisvm(svm_input, y, number_of_samples, used_number_of_features);
 //  mrisvm.set_parameters(parameter);
@@ -574,7 +575,7 @@ int main (int argc,char *argv[]) {
 //  boost::multi_array<double,1> weights(boost::extents[used_number_of_features]);
 //  mrisvm.train_weights(weights);
 //
-//  clock_gettime(CLOCK_MONOTONIC,&end);
+//  lipsia_gettime(&end);
 //  long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
 //  cout << "Execution time: " << execution_time / 1e9 << "s" << endl;
 //

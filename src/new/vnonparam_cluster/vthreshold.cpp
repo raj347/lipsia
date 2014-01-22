@@ -36,6 +36,7 @@
 #endif /*_OPENMP*/
 
 #include "Threshold.h"
+#include "compat.h"
 
 using std::cerr;
 using std::cout;
@@ -105,10 +106,10 @@ int main (int argc,char *argv[]) {
   vector<VImage> source_images;
 
   struct timespec start,end;
-  clock_gettime(CLOCK_MONOTONIC,&start);
+  lipsia_gettime(&start);
   VAttrList attribute_list  = VReadFile(input_file, NULL);
   fclose(input_file);
-  clock_gettime(CLOCK_MONOTONIC,&end);
+  lipsia_gettime(&end);
   long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
   cerr << "Reading time: " << execution_time / 1e9 << "s" << endl;
   
@@ -136,7 +137,7 @@ int main (int argc,char *argv[]) {
   //boost::multi_array<float, 4> pool(boost::extents[number_of_bands][number_of_rows][number_of_columns][pool_size]);
 
   cerr << "Calculating thresholds." << endl;
-  clock_gettime(CLOCK_MONOTONIC,&start);
+  lipsia_gettime(&start);
  
   VImage threshold_image_right = VCreateImage(number_of_bands,number_of_rows,number_of_columns,VFloatRepn);
   VFillImage(threshold_image_right, VAllBands, 0);
@@ -183,7 +184,7 @@ int main (int argc,char *argv[]) {
     }
   }
   cerr << "Done." << endl;
-  clock_gettime(CLOCK_MONOTONIC,&end);
+  lipsia_gettime(&end);
   execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
   cerr << "Calculation time: " << execution_time / 1e9 << "s" << endl;
 

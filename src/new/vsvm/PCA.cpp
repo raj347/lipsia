@@ -22,6 +22,7 @@
 #include <gsl/gsl_blas.h>
 
 #include "PCA.h"
+#include "compat.h"
 
 #define PCA_CUTOFF 1e-1
 using std::ofstream;
@@ -183,9 +184,9 @@ gsl_matrix_float *PrComp::invert_matrix(gsl_matrix_float* W, int number_of_featu
  
   cerr << "Dimensions of V: " << number_of_permutations << "x" << number_of_features << endl; 
   struct timespec start,end;
-  clock_gettime(CLOCK_MONOTONIC,&start);
+  lipsia_gettime(&start);
   gsl_blas_sgemm( CblasNoTrans, CblasTrans, 1.0, W, rotation_, 0.0, V);
-  clock_gettime(CLOCK_MONOTONIC,&end);
+  lipsia_gettime(&end);
   long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
   cerr << "Execution time: " << execution_time / 1e9 << "s" << endl;
 
@@ -195,14 +196,14 @@ gsl_matrix_float *PrComp::invert_matrix(gsl_matrix_float* W, int number_of_featu
 
 void PrComp::invert_permutation(vector<float> &inverted_permutated_voxel_weight, boost::multi_array<float,2> &weights, int feature_index, int permutations) {
   //struct timespec start,end;
-  //clock_gettime(CLOCK_MONOTONIC,&start);
+  //lipsia_gettime(&start);
   for (int i = 0; i < permutations; i++) {
     inverted_permutated_voxel_weight[i] = 0.0;
     for (int j = 0; j < p_; j++) {
       inverted_permutated_voxel_weight[i] += weights[i][j] * gsl_matrix_float_get(rotation_,feature_index,j);
     }
   }
-  //clock_gettime(CLOCK_MONOTONIC,&end);
+  //lipsia_gettime(&end);
   //long long int execution_time_all = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
   //cout << "Loop time: " << execution_time_all / 1e6 << "ms" << endl;
 

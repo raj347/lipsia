@@ -66,6 +66,7 @@
 // Class header
 #include "PCA.h"
 #include "MriSvm.h"
+#include "compat.h"
 
 #define DEFAULT_VSVM_IMAGE_CLASS 0
 
@@ -330,9 +331,9 @@ int main (int argc,char *argv[]) {
      ***************/
     cerr << "Conducting PCA ... ";
     struct timespec start,end;
-    clock_gettime(CLOCK_MONOTONIC,&start);
+    lipsia_gettime(&start);
     pca_result = PCA::prcomp(sample_features);
-    clock_gettime(CLOCK_MONOTONIC,&end);
+    lipsia_gettime(&end);
 
     long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
     cerr << "Execution time: " << execution_time / 1e9 << "s" << endl;
@@ -364,7 +365,7 @@ int main (int argc,char *argv[]) {
 
   cerr << "Conducting SVM ... ";
   struct timespec start,end;
-  clock_gettime(CLOCK_MONOTONIC,&start);
+  lipsia_gettime(&start);
 
   MriSvm mrisvm(svm_input, classes, number_of_samples, number_of_svm_features);
   mrisvm.set_parameters(parameter);
@@ -378,7 +379,7 @@ int main (int argc,char *argv[]) {
   boost::multi_array<float, 1> weights;
   mrisvm.train_weights(weights);
   //cerr << "CV" << mrisvm.cross_validate(2) << endl;
-  clock_gettime(CLOCK_MONOTONIC,&end);
+  lipsia_gettime(&end);
 
   long long int execution_time = (end.tv_sec * 1e9 + end.tv_nsec) - (start.tv_sec * 1e9 + start.tv_nsec);
   cerr << "Execution time: " << execution_time / 1e9 << "s" << endl;
